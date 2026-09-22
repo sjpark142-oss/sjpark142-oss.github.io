@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>네온 탁구 게임 (Neon Ping Pong)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #090a0f;
+            color: #ffffff;
+            overflow: hidden;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Neon Glow Effects */
+        .neon-text-blue {
+            text-shadow: 0 0 5px #00f3ff, 0 0 10px #00f3ff, 0 0 20px #00f3ff;
+        }
+
+        .neon-text-pink {
+            text-shadow: 0 0 5px #ff0055, 0 0 10px #ff0055, 0 0 20px #ff0055;
+        }
+
+        .neon-border-blue {
+            box-shadow: 0 0 10px #00f3ff, inset 0 0 10px #00f3ff;
+            border-color: #00f3ff;
+        }
+
+        .neon-btn {
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .neon-btn:hover {
+            box-shadow: 0 0 15px currentColor;
+            transform: translateY(-2px);
+        }
+
+        .neon-btn:active {
+            transform: translateY(1px);
+        }
+
+        canvas {
+            box-shadow: 0 0 25px rgba(0, 243, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white p-2 sm:p-4">
+
+    <!-- Main Game Wrapper -->
+    <div class="relative w-full max-w-4xl flex flex-col items-center">
+
+        <!-- Top Header Bar -->
+        <div class="w-full flex justify-between items-center mb-3 px-2">
+            <h1 class="text-2xl sm:text-3xl font-black font-orbitron tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-pink-500 to-purple-500 flex items-center gap-2">
+                <i class="fa-solid fa-table-tennis-paddle-ball text-cyan-400"></i> NEON PONG
+            </h1>
+            
+            <div class="flex items-center gap-2">
+                <button id="btn-pause" class="neon-btn px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white text-sm font-semibold flex items-center gap-1">
+                    <i class="fa-solid fa-pause" id="icon-pause"></i> <span id="text-pause" class="hidden sm:inline">일시정지</span>
+                </button>
+                <button id="btn-sound" class="neon-btn p-2 rounded-lg bg-slate-800 border border-slate-700 text-cyan-400 hover:text-cyan-300 text-sm">
+                    <i class="fa-solid fa-volume-high" id="icon-sound"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="relative w-full aspect-[16/9] max-h-[70vh] rounded-2xl overflow-hidden border-2 border-slate-800 bg-slate-900 shadow-2xl flex items-center justify-center">
+            
+            <canvas id="pongCanvas" class="w-full h-full block bg-slate-950"></canvas>
+
+            <!-- Overlay: Start Screen / Main Menu -->
+            <div id="overlay-menu" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 z-20 transition-opacity duration-300">
+                <div class="text-center mb-6">
+                    <h2 class="text-4xl sm:text-6xl font-black font-orbitron tracking-widest text-cyan-400 neon-text-blue mb-2">NEON PONG</h2>
+                    <p class="text-slate-400 text-sm sm:text-base">클래식 아케이드 핑퐁 게임에 오신 것을 환영합니다!</p>
+                </div>
+
+                <div class="w-full max-w-sm flex flex-col gap-4">
+                    <!-- Mode Selection -->
+                    <div class="flex gap-2 p-1 bg-slate-900 border border-slate-800 rounded-xl">
+                        <button id="mode-vs-ai" class="flex-1 py-2 rounded-lg text-sm font-bold bg-cyan-500 text-slate-950 transition-all">1인용 (AI 대전)</button>
+                        <button id="mode-vs-player" class="flex-1 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all">2인용 (친구 대전)</button>
+                    </div>
+
+                    <!-- AI Difficulty (Hidden in 2P Mode) -->
+                    <div id="difficulty-box" class="flex flex-col gap-1.5">
+                        <label class="text-xs font-semibold text-slate-400">AI 난이도 설정</label>
+                        <div class="grid grid-cols-4 gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-xl">
+                            <button data-diff="easy" class="diff-btn py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white">쉬움</button>
+                            <button data-diff="medium" class="diff-btn py-1.5 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">보통</button>
+                            <button data-diff="hard" class="diff-btn py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white">어려움</button>
+                            <button data-diff="impossible" class="diff-btn py-1.5 rounded-lg text-xs font-bold text-pink-500 hover:text-pink-400">불가능</button>
+                        </div>
+                    </div>
+
+                    <!-- Target Score -->
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-xs font-semibold text-slate-400">목표 점수 (승리 조건)</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button data-score="5" class="score-btn py-1.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 text-xs font-bold hover:border-cyan-500">5 점</button>
+                            <button data-score="10" class="score-btn py-1.5 rounded-xl border border-cyan-500 bg-cyan-500/20 text-cyan-400 text-xs font-bold">10 점</button>
+                            <button data-score="15" class="score-btn py-1.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 text-xs font-bold hover:border-cyan-500">15 점</button>
+                        </div>
+                    </div>
+
+                    <!-- Start Button -->
+                    <button id="btn-start" class="neon-btn w-full py-3.5 mt-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-slate-950 font-orbitron tracking-wider text-lg shadow-lg shadow-cyan-500/30 hover:from-cyan-400 hover:to-blue-500">
+                        GAME START
+                    </button>
+                </div>
+            </div>
+
+            <!-- Overlay: Pause Screen -->
+            <div id="overlay-pause" class="absolute inset-0 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center p-6 z-20 hidden">
+                <h2 class="text-3xl sm:text-5xl font-black font-orbitron text-amber-400 mb-6 tracking-widest">PAUSED</h2>
+                <div class="flex flex-col gap-3 w-48">
+                    <button id="btn-resume" class="neon-btn py-2.5 rounded-xl bg-cyan-500 text-slate-950 font-bold">계속하기</button>
+                    <button id="btn-restart" class="neon-btn py-2.5 rounded-xl bg-slate-800 text-slate-200 hover:text-white font-bold border border-slate-700">다시 시작</button>
+                    <button id="btn-main-menu" class="neon-btn py-2.5 rounded-xl bg-slate-800 text-slate-200 hover:text-white font-bold border border-slate-700">메인 메뉴</button>
+                </div>
+            </div>
+
+            <!-- Overlay: Game Over Screen -->
+            <div id="overlay-gameover" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 z-20 hidden">
+                <div class="text-center mb-6">
+                    <p id="winner-subtitle" class="text-slate-400 text-sm font-semibold mb-1">최종 승리자</p>
+                    <h2 id="winner-title" class="text-4xl sm:text-6xl font-black font-orbitron text-cyan-400 neon-text-blue mb-2">PLAYER 1 WIN!</h2>
+                    <p id="final-score" class="text-2xl font-orbitron text-slate-300 mt-2">10 : 8</p>
+                </div>
+
+                <div class="flex gap-4">
+                    <button id="btn-play-again" class="neon-btn px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold font-orbitron shadow-lg shadow-cyan-500/30">
+                        PLAY AGAIN
+                    </button>
+                    <button id="btn-menu-again" class="neon-btn px-6 py-3 rounded-xl bg-slate-800 text-slate-200 hover:text-white font-bold border border-slate-700">
+                        MENU
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Controls Guide Footer -->
+        <div class="w-full mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-400">
+            <div class="bg-slate-900/80 border border-slate-800/80 rounded-xl p-3 flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center font-bold font-orbitron">P1</div>
+                <div>
+                    <div class="font-bold text-slate-200">플레이어 1 (왼쪽)</div>
+                    <div>키보드 <span class="bg-slate-800 px-1.5 py-0.5 rounded text-cyan-400 border border-slate-700">W</span> / <span class="bg-slate-800 px-1.5 py-0.5 rounded text-cyan-400 border border-slate-700">S</span> 또는 화면 터치/드래그</div>
+                </div>
+            </div>
+            <div class="bg-slate-900/80 border border-slate-800/80 rounded-xl p-3 flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-pink-500/10 border border-pink-500/30 text-pink-400 flex items-center justify-center font-bold font-orbitron">P2</div>
+                <div>
+                    <div class="font-bold text-slate-200">플레이어 2 (우측 / AI)</div>
+                    <div>키보드 <span class="bg-slate-800 px-1.5 py-0.5 rounded text-pink-400 border border-slate-700">↑</span> / <span class="bg-slate-800 px-1.5 py-0.5 rounded text-pink-400 border border-slate-700">↓</span> 또는 화면 터치/드래그</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JavaScript Game Logic -->
+    <script>
+        // ==========================================
+        // Sound Effects System (Web Audio API)
+        // ==========================================
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playBeep(freq = 440, type = 'sine', duration = 0.08, volume = 0.1) {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    
+                    gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            }
+
+            playHitPaddle() {
+                this.playBeep(480, 'square', 0.06, 0.15);
+            }
+
+            playHitWall() {
+                this.playBeep(240, 'triangle', 0.05, 0.1);
+            }
+
+            playScore() {
+                if (this.muted || !this.ctx) return;
+                // Double chime
+                this.playBeep(523.25, 'sine', 0.1, 0.2); // C5
+                setTimeout(() => this.playBeep(659.25, 'sine', 0.2, 0.2), 100); // E5
+            }
+
+            playWin() {
+                if (this.muted || !this.ctx) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    setTimeout(() => {
+                        this.playBeep(freq, 'triangle', 0.2, 0.25);
+                    }, idx * 120);
+                });
+            }
+        }
+
+        const sfx = new SoundFX();
+
+        // ==========================================
+        // Game Engine & State Management
+        // ==========================================
+        const canvas = document.getElementById('pongCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game Configuration & State
+        let gameState = 'MENU'; // 'MENU', 'PLAYING', 'PAUSED', 'GAMEOVER'
+        let gameMode = 'AI'; // 'AI', 'PLAYER'
+        let aiDifficulty = 'medium'; // 'easy', 'medium', 'hard', 'impossible'
+        let targetScore = 10;
+
+        let scoreP1 = 0;
+        let scoreP2 = 0;
+        let animationFrameId = null;
+
+        // Virtual Canvas Dimensions (Base logic resolution 800x450)
+        const BASE_WIDTH = 800;
+        const BASE_HEIGHT = 450;
+
+        // Paddles Configuration
+        const PADDLE_WIDTH = 12;
+        const PADDLE_HEIGHT = 80;
+        const PADDLE_SPEED = 7;
+
+        const player1 = {
+            x: 20,
+            y: BASE_HEIGHT / 2 - PADDLE_HEIGHT / 2,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            vy: 0,
+            score: 0,
+            color: '#00f3ff'
+        };
+
+        const player2 = {
+            x: BASE_WIDTH - 20 - PADDLE_WIDTH,
+            y: BASE_HEIGHT / 2 - PADDLE_HEIGHT / 2,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            vy: 0,
+            score: 0,
+            color: '#ff0055'
+        };
+
+        // Ball Configuration
+        const BALL_RADIUS = 7;
+        const INITIAL_BALL_SPEED = 5;
+        const SPEED_INCREMENT = 0.35;
+        const MAX_BALL_SPEED = 14;
+
+        const ball = {
+            x: BASE_WIDTH / 2,
+            y: BASE_HEIGHT / 2,
+            radius: BALL_RADIUS,
+            vx: INITIAL_BALL_SPEED,
+            vy: 0,
+            speed: INITIAL_BALL_SPEED,
+            trail: []
+        };
+
+        // Particles Effect Pool
+        let particles = [];
+
+        // Key states
+        const keys = {
+            w: false,
+            s: false,
+            ArrowUp: false,
+            ArrowDown: false
+        };
+
+        // ==========================================
+        // Input Handling
+        // ==========================================
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'w' || e.key === 'W') keys.w = true;
+            if (e.key === 's' || e.key === 'S') keys.s = true;
+            if (e.key === 'ArrowUp') keys.ArrowUp = true;
+            if (e.key === 'ArrowDown') keys.ArrowDown = true;
+
+            if (e.key === ' ' || e.key === 'Escape') {
+                if (gameState === 'PLAYING') togglePause();
+                else if (gameState === 'PAUSED') togglePause();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'w' || e.key === 'W') keys.w = false;
+            if (e.key === 's' || e.key === 'S') keys.s = false;
+            if (e.key === 'ArrowUp') keys.ArrowUp = false;
+            if (e.key === 'ArrowDown') keys.ArrowDown = false;
+        });
+
+        // Touch Control for Mobile Device
+        let activeTouches = {};
+
+        canvas.addEventListener('touchstart', handleTouch, { passive: false });
+        canvas.addEventListener('touchmove', handleTouch, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+        function handleTouch(e) {
+            e.preventDefault();
+            sfx.init();
+            const rect = canvas.getBoundingClientRect();
+            const scaleY = BASE_HEIGHT / rect.height;
+            const scaleX = BASE_WIDTH / rect.width;
+
+            for (let i = 0; i < e.touches.length; i++) {
+                const touch = e.touches[i];
+                const touchX = (touch.clientX - rect.left) * scaleX;
+                const touchY = (touch.clientY - rect.top) * scaleY;
+
+                if (touchX < BASE_WIDTH / 2) {
+                    // Left side touch -> Control Player 1
+                    player1.y = touchY - player1.height / 2;
+                } else if (gameMode === 'PLAYER') {
+                    // Right side touch in 2P mode -> Control Player 2
+                    player2.y = touchY - player2.height / 2;
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+        }
+
+        // ==========================================
+        // Particle System
+        // ==========================================
+        function createImpactParticles(x, y, color) {
+            const count = 16;
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 4 + 1;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 3 + 1,
+                    color: color,
+                    alpha: 1,
+                    life: Math.random() * 20 + 10
+                });
+            }
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 1 / p.life;
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, p.alpha);
+                ctx.fillStyle = p.color;
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        // ==========================================
+        // Physics & AI Logic
+        // ==========================================
+        function resetBall(winner) {
+            ball.x = BASE_WIDTH / 2;
+            ball.y = BASE_HEIGHT / 2;
+            ball.speed = INITIAL_BALL_SPEED;
+            ball.trail = [];
+
+            // Direct ball towards the loser
+            const angle = (Math.random() * 0.6 - 0.3); // Slight random angle
+            const direction = winner === 'P1' ? 1 : -1;
+            ball.vx = Math.cos(angle) * ball.speed * direction;
+            ball.vy = Math.sin(angle) * ball.speed;
+        }
+
+        function updateAI() {
+            const targetY = ball.y - player2.height / 2;
+            let aiSpeed = PADDLE_SPEED;
+            let reactionError = 0;
+
+            switch (aiDifficulty) {
+                case 'easy':
+                    aiSpeed = PADDLE_SPEED * 0.45;
+                    reactionError = 35;
+                    break;
+                case 'medium':
+                    aiSpeed = PADDLE_SPEED * 0.7;
+                    reactionError = 15;
+                    break;
+                case 'hard':
+                    aiSpeed = PADDLE_SPEED * 0.95;
+                    reactionError = 5;
+                    break;
+                case 'impossible':
+                    aiSpeed = PADDLE_SPEED * 1.2;
+                    reactionError = 0;
+                    break;
+            }
+
+            // Move AI paddle towards predicted position with slight smoothing
+            if (ball.vx > 0) { // Only track effectively when ball moves towards AI
+                const diff = (targetY + reactionError) - player2.y;
+                if (Math.abs(diff) > 4) {
+                    player2.y += Math.sign(diff) * Math.min(Math.abs(diff), aiSpeed);
+                }
+            } else {
+                // Return to center slowly when ball is moving away
+                const centerDiff = (BASE_HEIGHT / 2 - player2.height / 2) - player2.y;
+                if (Math.abs(centerDiff) > 10) {
+                    player2.y += Math.sign(centerDiff) * (aiSpeed * 0.3);
+                }
+            }
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            // Player 1 Movement
+            if (keys.w) player1.y -= PADDLE_SPEED;
+            if (keys.s) player1.y += PADDLE_SPEED;
+
+            // Player 2 Movement (AI or Human)
+            if (gameMode === 'PLAYER') {
+                if (keys.ArrowUp) player2.y -= PADDLE_SPEED;
+                if (keys.ArrowDown) player2.y += PADDLE_SPEED;
+            } else {
+                updateAI();
+            }
+
+            // Clamp Paddles to Screen Bounds
+            player1.y = Math.max(0, Math.min(BASE_HEIGHT - player1.height, player1.y));
+            player2.y = Math.max(0, Math.min(BASE_HEIGHT - player2.height, player2.y));
+
+            // Ball Trail Effect
+            ball.trail.push({ x: ball.x, y: ball.y });
+            if (ball.trail.length > 8) ball.trail.shift();
+
+            // Ball Movement
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+
+            // Top/Bottom Wall Collisions
+            if (ball.y - ball.radius <= 0) {
+                ball.y = ball.radius;
+                ball.vy *= -1;
+                sfx.playHitWall();
+            } else if (ball.y + ball.radius >= BASE_HEIGHT) {
+                ball.y = BASE_HEIGHT - ball.radius;
+                ball.vy *= -1;
+                sfx.playHitWall();
+            }
+
+            // Paddle 1 Collision
+            if (ball.x - ball.radius <= player1.x + player1.width &&
+                ball.x + ball.radius >= player1.x &&
+                ball.y >= player1.y &&
+                ball.y <= player1.y + player1.height) {
+                
+                ball.x = player1.x + player1.width + ball.radius; // Prevent clipping
+                
+                // Angle calculation based on hit location relative to paddle center
+                const hitPoint = (ball.y - (player1.y + player1.height / 2)) / (player1.height / 2);
+                const maxAngle = Math.PI / 3.5; // Max 51 degrees bounce
+                const bounceAngle = hitPoint * maxAngle;
+
+                ball.speed = Math.min(MAX_BALL_SPEED, ball.speed + SPEED_INCREMENT);
+                ball.vx = Math.cos(bounceAngle) * ball.speed;
+                ball.vy = Math.sin(bounceAngle) * ball.speed;
+
+                createImpactParticles(ball.x, ball.y, player1.color);
+                sfx.playHitPaddle();
+            }
+
+            // Paddle 2 Collision
+            if (ball.x + ball.radius >= player2.x &&
+                ball.x - ball.radius <= player2.x + player2.width &&
+                ball.y >= player2.y &&
+                ball.y <= player2.y + player2.height) {
+
+                ball.x = player2.x - ball.radius; // Prevent clipping
+
+                const hitPoint = (ball.y - (player2.y + player2.height / 2)) / (player2.height / 2);
+                const maxAngle = Math.PI / 3.5;
+                const bounceAngle = hitPoint * maxAngle;
+
+                ball.speed = Math.min(MAX_BALL_SPEED, ball.speed + SPEED_INCREMENT);
+                ball.vx = -Math.cos(bounceAngle) * ball.speed;
+                ball.vy = Math.sin(bounceAngle) * ball.speed;
+
+                createImpactParticles(ball.x, ball.y, player2.color);
+                sfx.playHitPaddle();
+            }
+
+            // Scoring Conditions
+            if (ball.x + ball.radius < 0) {
+                // Player 2 Scores
+                player2.score++;
+                createImpactParticles(0, ball.y, player2.color);
+                sfx.playScore();
+                checkGameOver() || resetBall('P2');
+            } else if (ball.x - ball.radius > BASE_WIDTH) {
+                // Player 1 Scores
+                player1.score++;
+                createImpactParticles(BASE_WIDTH, ball.y, player1.color);
+                sfx.playScore();
+                checkGameOver() || resetBall('P1');
+            }
+
+            updateParticles();
+        }
+
+        function checkGameOver() {
+            if (player1.score >= targetScore || player2.score >= targetScore) {
+                gameState = 'GAMEOVER';
+                sfx.playWin();
+                showGameOverScreen();
+                return true;
+            }
+            return false;
+        }
+
+        // ==========================================
+        // Render Functions
+        // ==========================================
+        function draw() {
+            // Clear Screen
+            ctx.fillStyle = '#090a0f';
+            ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+
+            // Draw Background Grid & Center Line
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < BASE_WIDTH; i += 40) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, BASE_HEIGHT);
+                ctx.stroke();
+            }
+
+            // Center Net Line
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(BASE_WIDTH / 2, 0);
+            ctx.lineTo(BASE_WIDTH / 2, BASE_HEIGHT);
+            ctx.stroke();
+            ctx.restore();
+
+            // Draw Scores in Background
+            ctx.save();
+            ctx.font = '900 72px Orbitron';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // P1 Score
+            ctx.fillStyle = 'rgba(0, 243, 255, 0.15)';
+            ctx.fillText(player1.score, BASE_WIDTH / 4, BASE_HEIGHT / 2);
+
+            // P2 Score
+            ctx.fillStyle = 'rgba(255, 0, 85, 0.15)';
+            ctx.fillText(player2.score, (BASE_WIDTH / 4) * 3, BASE_HEIGHT / 2);
+            ctx.restore();
+
+            // Draw Paddles
+            drawPaddle(player1);
+            drawPaddle(player2);
+
+            // Draw Ball Trail
+            ball.trail.forEach((pos, idx) => {
+                const alpha = (idx + 1) / ball.trail.length * 0.4;
+                const radius = ball.radius * ((idx + 1) / ball.trail.length);
+                ctx.save();
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // Draw Ball
+            ctx.save();
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = '#00f3ff';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Draw Particles
+            drawParticles();
+        }
+
+        function drawPaddle(p) {
+            ctx.save();
+            ctx.fillStyle = p.color;
+            ctx.shadowColor = p.color;
+            ctx.shadowBlur = 15;
+            
+            // Rounded rectangle paddle
+            const r = 4;
+            ctx.beginPath();
+            ctx.moveTo(p.x + r, p.y);
+            ctx.lineTo(p.x + p.width - r, p.y);
+            ctx.quadraticCurveTo(p.x + p.width, p.y, p.x + p.width, p.y + r);
+            ctx.lineTo(p.x + p.width, p.y + p.height - r);
+            ctx.quadraticCurveTo(p.x + p.width, p.y + p.height, p.x + p.width - r, p.y + p.height);
+            ctx.lineTo(p.x + r, p.y + p.height);
+            ctx.quadraticCurveTo(p.x, p.y + p.height, p.x, p.y + p.height - r);
+            ctx.lineTo(p.x, p.y + r);
+            ctx.quadraticCurveTo(p.x, p.y, p.x + r, p.y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Responsive Resolution Resize Handler
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            canvas.width = BASE_WIDTH;
+            canvas.height = BASE_HEIGHT;
+        }
+
+        // ==========================================
+        // Main Game Loop
+        // ==========================================
+        function gameLoop() {
+            update();
+            draw();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // UI Flow Actions
+        function startGame() {
+            sfx.init();
+            player1.score = 0;
+            player2.score = 0;
+            player1.y = BASE_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+            player2.y = BASE_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+            particles = [];
+
+            resetBall(Math.random() > 0.5 ? 'P1' : 'P2');
+
+            document.getElementById('overlay-menu').classList.add('hidden');
+            document.getElementById('overlay-pause').classList.add('hidden');
+            document.getElementById('overlay-gameover').classList.add('hidden');
+
+            gameState = 'PLAYING';
+        }
+
+        function togglePause() {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                document.getElementById('overlay-pause').classList.remove('hidden');
+                document.getElementById('icon-pause').className = 'fa-solid fa-play';
+                document.getElementById('text-pause').innerText = '재개';
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                document.getElementById('overlay-pause').classList.add('hidden');
+                document.getElementById('icon-pause').className = 'fa-solid fa-pause';
+                document.getElementById('text-pause').innerText = '일시정지';
+            }
+        }
+
+        function showGameOverScreen() {
+            const winnerTitle = document.getElementById('winner-title');
+            const winnerSub = document.getElementById('winner-subtitle');
+            const finalScore = document.getElementById('final-score');
+
+            if (player1.score >= targetScore) {
+                winnerTitle.innerText = 'PLAYER 1 WIN!';
+                winnerTitle.className = 'text-4xl sm:text-6xl font-black font-orbitron text-cyan-400 neon-text-blue mb-2';
+                winnerSub.innerText = gameMode === 'AI' ? '플레이어 승리!' : '1P 플레이어 승리!';
+            } else {
+                winnerTitle.innerText = gameMode === 'AI' ? 'AI WIN!' : 'PLAYER 2 WIN!';
+                winnerTitle.className = 'text-4xl sm:text-6xl font-black font-orbitron text-pink-500 neon-text-pink mb-2';
+                winnerSub.innerText = gameMode === 'AI' ? '인공지능 승리!' : '2P 플레이어 승리!';
+            }
+
+            finalScore.innerText = `${player1.score} : ${player2.score}`;
+            document.getElementById('overlay-gameover').classList.remove('hidden');
+        }
+
+        function openMainMenu() {
+            gameState = 'MENU';
+            document.getElementById('overlay-menu').classList.remove('hidden');
+            document.getElementById('overlay-pause').classList.add('hidden');
+            document.getElementById('overlay-gameover').classList.add('hidden');
+            document.getElementById('icon-pause').className = 'fa-solid fa-pause';
+            document.getElementById('text-pause').innerText = '일시정지';
+        }
+
+        // ==========================================
+        // UI Menu Event Listeners
+        // ==========================================
+        document.getElementById('mode-vs-ai').addEventListener('click', (e) => {
+            gameMode = 'AI';
+            e.target.className = 'flex-1 py-2 rounded-lg text-sm font-bold bg-cyan-500 text-slate-950 transition-all';
+            document.getElementById('mode-vs-player').className = 'flex-1 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all';
+            document.getElementById('difficulty-box').classList.remove('hidden');
+        });
+
+        document.getElementById('mode-vs-player').addEventListener('click', (e) => {
+            gameMode = 'PLAYER';
+            e.target.className = 'flex-1 py-2 rounded-lg text-sm font-bold bg-pink-500 text-slate-950 transition-all';
+            document.getElementById('mode-vs-ai').className = 'flex-1 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all';
+            document.getElementById('difficulty-box').classList.add('hidden');
+        });
+
+        // Difficulty Buttons
+        document.querySelectorAll('.diff-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.diff-btn').forEach(b => {
+                    b.className = 'diff-btn py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white';
+                });
+                aiDifficulty = e.target.dataset.diff;
+                if (aiDifficulty === 'impossible') {
+                    e.target.className = 'diff-btn py-1.5 rounded-lg text-xs font-bold bg-pink-500/20 text-pink-400 border border-pink-500/40';
+                } else {
+                    e.target.className = 'diff-btn py-1.5 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/40';
+                }
+            });
+        });
+
+        // Target Score Buttons
+        document.querySelectorAll('.score-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.score-btn').forEach(b => {
+                    b.className = 'score-btn py-1.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 text-xs font-bold hover:border-cyan-500';
+                });
+                targetScore = parseInt(e.target.dataset.score);
+                e.target.className = 'score-btn py-1.5 rounded-xl border border-cyan-500 bg-cyan-500/20 text-cyan-400 text-xs font-bold';
+            });
+        });
+
+        // Buttons Action
+        document.getElementById('btn-start').addEventListener('click', startGame);
+        document.getElementById('btn-pause').addEventListener('click', togglePause);
+        document.getElementById('btn-resume').addEventListener('click', togglePause);
+        document.getElementById('btn-restart').addEventListener('click', startGame);
+        document.getElementById('btn-main-menu').addEventListener('click', openMainMenu);
+        document.getElementById('btn-play-again').addEventListener('click', startGame);
+        document.getElementById('btn-menu-again').addEventListener('click', openMainMenu);
+
+        // Sound Toggle Button
+        document.getElementById('btn-sound').addEventListener('click', () => {
+            sfx.muted = !sfx.muted;
+            const icon = document.getElementById('icon-sound');
+            if (sfx.muted) {
+                icon.className = 'fa-solid fa-volume-xmark text-slate-500';
+            } else {
+                icon.className = 'fa-solid fa-volume-high text-cyan-400';
+            }
+        });
+
+        // Initialize Application
+        window.addEventListener('resize', resizeCanvas);
+
+        window.onload = function() {
+            resizeCanvas();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
