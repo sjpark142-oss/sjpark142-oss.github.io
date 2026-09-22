@@ -1,203 +1,211 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" class="w-full h-full overflow-hidden select-none">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link rel="icon" type="image/x-icon" href="https://raw.githubusercontent.com/sjpark142-oss/sjpark142-oss.github.io/main/PingPongGame/icon.ico">
-    <title>PingPong</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>모바일 네온 핑퐁 (Neon Pong Mobile)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+KR:wght@400;700;900&display=swap');
 
         * {
             user-select: none;
             -webkit-user-select: none;
-            touch-action: manipulation;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: none; /* Prevents pull-to-refresh & pinch zoom */
         }
 
         body {
             font-family: 'Noto Sans KR', sans-serif;
-            background-color: #090a0f;
+            background-color: #05070f;
             color: #ffffff;
             overflow: hidden;
+            width: 100vw;
+            height: 100vh;
         }
 
         .font-orbitron {
             font-family: 'Orbitron', sans-serif;
         }
 
-        /* Neon Glow Effects */
-        .neon-text-blue {
-            text-shadow: 0 0 5px #00f3ff, 0 0 10px #00f3ff, 0 0 20px #00f3ff;
+        .neon-glow-blue {
+            text-shadow: 0 0 8px #00f3ff, 0 0 20px #00f3ff;
         }
 
-        .neon-text-pink {
-            text-shadow: 0 0 5px #ff0055, 0 0 10px #ff0055, 0 0 20px #ff0055;
-        }
-
-        .neon-border-blue {
-            box-shadow: 0 0 10px #00f3ff, inset 0 0 10px #00f3ff;
-            border-color: #00f3ff;
+        .neon-glow-pink {
+            text-shadow: 0 0 8px #ff0055, 0 0 20px #ff0055;
         }
 
         .neon-btn {
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
             position: relative;
-            overflow: hidden;
-        }
-
-        .neon-btn:hover {
-            box-shadow: 0 0 15px currentColor;
-            transform: translateY(-2px);
         }
 
         .neon-btn:active {
-            transform: translateY(1px);
+            transform: scale(0.96);
         }
 
-        canvas {
-            box-shadow: 0 0 25px rgba(0, 243, 255, 0.2);
+        /* Responsive UI Overlay Animations */
+        .overlay-fade-enter {
+            animation: fadeIn 0.25s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
         }
     </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white p-2 sm:p-4">
+<body class="flex flex-col items-center justify-between w-full h-full bg-slate-950 p-2 sm:p-4 select-none">
 
-    <!-- Main Game Wrapper -->
-    <div class="relative w-full max-w-4xl flex flex-col items-center">
-
-        <!-- Top Header Bar -->
-        <div class="w-full flex justify-between items-center mb-3 px-2">
-            <h1 class="text-2xl sm:text-3xl font-black font-orbitron tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-pink-500 to-purple-500 flex items-center gap-2">
+    <!-- Top Bar -->
+    <header class="w-full max-w-4xl flex justify-between items-center z-10 py-1 px-2 shrink-0">
+        <div class="flex items-center gap-2">
+            <h1 class="text-xl sm:text-2xl font-black font-orbitron tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-pink-500 to-purple-500 flex items-center gap-2">
                 <i class="fa-solid fa-table-tennis-paddle-ball text-cyan-400"></i> NEON PONG
             </h1>
-            
-            <div class="flex items-center gap-2">
-                <button id="btn-pause" class="neon-btn px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white text-sm font-semibold flex items-center gap-1">
-                    <i class="fa-solid fa-pause" id="icon-pause"></i> <span id="text-pause" class="hidden sm:inline">일시정지</span>
+            <span id="orientation-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 uppercase tracking-widest hidden sm:inline-block">
+                PORTRAIT
+            </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button id="btn-pause" class="neon-btn px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 active:text-white text-xs font-bold flex items-center gap-1.5">
+                <i class="fa-solid fa-pause" id="icon-pause"></i> <span id="text-pause" class="hidden sm:inline">일시정지</span>
+            </button>
+            <button id="btn-sound" class="neon-btn p-2 rounded-xl bg-slate-900 border border-slate-800 text-cyan-400 text-xs">
+                <i class="fa-solid fa-volume-high" id="icon-sound"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Canvas Container -->
+    <main class="relative w-full flex-1 max-w-4xl max-h-[82vh] rounded-2xl overflow-hidden border border-slate-800/80 bg-slate-950 shadow-2xl flex items-center justify-center my-auto">
+        
+        <canvas id="pongCanvas" class="w-full h-full block bg-slate-950 touch-none"></canvas>
+
+        <!-- Overlay 1: Main Menu -->
+        <div id="overlay-menu" class="overlay-fade-enter absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-between p-4 sm:p-6 z-20 overflow-y-auto">
+            <div class="text-center my-auto">
+                <h2 class="text-3xl sm:text-5xl font-black font-orbitron tracking-widest text-cyan-400 neon-glow-blue mb-1">NEON PONG</h2>
+                <p class="text-slate-400 text-xs sm:text-sm font-medium">모바일 스마트 터치 지원 탁구 게임</p>
+            </div>
+
+            <div class="w-full max-w-xs sm:max-w-sm flex flex-col gap-3 sm:gap-4 my-auto">
+                <!-- Game Mode Selection -->
+                <div class="flex gap-2 p-1 bg-slate-900/90 border border-slate-800 rounded-xl">
+                    <button id="mode-vs-ai" class="flex-1 py-2.5 rounded-lg text-xs sm:text-sm font-bold bg-cyan-500 text-slate-950 shadow-md transition-all">1인용 (vs AI)</button>
+                    <button id="mode-vs-player" class="flex-1 py-2.5 rounded-lg text-xs sm:text-sm font-bold text-slate-400 hover:text-white transition-all">2인용 (vs 친구)</button>
+                </div>
+
+                <!-- AI Difficulty Options -->
+                <div id="difficulty-box" class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-bold text-slate-400 tracking-wider">AI 난이도</label>
+                    <div class="grid grid-cols-4 gap-1.5 p-1 bg-slate-900/90 border border-slate-800 rounded-xl">
+                        <button data-diff="easy" class="diff-btn py-2 rounded-lg text-xs font-bold text-slate-400">쉬움</button>
+                        <button data-diff="medium" class="diff-btn py-2 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">보통</button>
+                        <button data-diff="hard" class="diff-btn py-2 rounded-lg text-xs font-bold text-slate-400">어려움</button>
+                        <button data-diff="impossible" class="diff-btn py-2 rounded-lg text-xs font-bold text-pink-500">극악</button>
+                    </div>
+                </div>
+
+                <!-- Target Score Options -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-bold text-slate-400 tracking-wider">목표 승리 점수</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button data-score="5" class="score-btn py-2 rounded-xl border border-slate-800 bg-slate-900 text-slate-300 text-xs font-bold">5 점</button>
+                        <button data-score="10" class="score-btn py-2 rounded-xl border border-cyan-500 bg-cyan-500/20 text-cyan-400 text-xs font-bold">10 점</button>
+                        <button data-score="15" class="score-btn py-2 rounded-xl border border-slate-800 bg-slate-900 text-slate-300 text-xs font-bold">15 점</button>
+                    </div>
+                </div>
+
+                <!-- Start Button -->
+                <button id="btn-start" class="neon-btn w-full py-3.5 mt-1 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 font-bold text-slate-950 font-orbitron tracking-widest text-base sm:text-lg shadow-lg shadow-cyan-500/25 active:opacity-90">
+                    GAME START
                 </button>
-                <button id="btn-sound" class="neon-btn p-2 rounded-lg bg-slate-800 border border-slate-700 text-cyan-400 hover:text-cyan-300 text-sm">
-                    <i class="fa-solid fa-volume-high" id="icon-sound"></i>
+            </div>
+
+            <!-- Touch Controls Hint -->
+            <div class="my-auto text-center bg-slate-900/60 border border-slate-800/80 rounded-xl p-2.5 w-full max-w-xs sm:max-w-sm">
+                <p id="control-hint-text" class="text-[11px] sm:text-xs text-slate-300 font-medium flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-hand-pointer text-cyan-400"></i>
+                    <span>화면 아무 곳이나 드래그하여 패들을 이동하세요!</span>
+                </p>
+            </div>
+        </div>
+
+        <!-- Overlay 2: Pause Menu -->
+        <div id="overlay-pause" class="overlay-fade-enter absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 z-20 hidden">
+            <h2 class="text-3xl font-black font-orbitron text-amber-400 mb-6 tracking-widest">PAUSED</h2>
+            <div class="flex flex-col gap-3 w-48">
+                <button id="btn-resume" class="neon-btn py-3 rounded-xl bg-cyan-500 text-slate-950 font-bold text-sm">계속하기</button>
+                <button id="btn-restart" class="neon-btn py-3 rounded-xl bg-slate-900 text-slate-200 font-bold border border-slate-800 text-sm">다시 시작</button>
+                <button id="btn-main-menu" class="neon-btn py-3 rounded-xl bg-slate-900 text-slate-200 font-bold border border-slate-800 text-sm">메인 메뉴</button>
+            </div>
+        </div>
+
+        <!-- Overlay 3: Game Over Menu -->
+        <div id="overlay-gameover" class="overlay-fade-enter absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 z-20 hidden">
+            <div class="text-center mb-6">
+                <p id="winner-subtitle" class="text-slate-400 text-xs font-semibold mb-1">최종 승리자</p>
+                <h2 id="winner-title" class="text-3xl sm:text-5xl font-black font-orbitron text-cyan-400 neon-glow-blue mb-2">PLAYER 1 WIN!</h2>
+                <p id="final-score" class="text-2xl font-orbitron text-slate-200 mt-2">10 : 8</p>
+            </div>
+
+            <div class="flex gap-3 w-full max-w-xs">
+                <button id="btn-play-again" class="flex-1 neon-btn py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 font-bold font-orbitron text-sm shadow-md shadow-cyan-500/20">
+                    REPLAY
+                </button>
+                <button id="btn-menu-again" class="flex-1 neon-btn py-3 rounded-xl bg-slate-900 text-slate-200 font-bold border border-slate-800 text-sm">
+                    MENU
                 </button>
             </div>
         </div>
 
-        <!-- Canvas Container -->
-        <div class="relative w-full aspect-[16/9] max-h-[70vh] rounded-2xl overflow-hidden border-2 border-slate-800 bg-slate-900 shadow-2xl flex items-center justify-center">
-            
-            <canvas id="pongCanvas" class="w-full h-full block bg-slate-950"></canvas>
+    </main>
 
-            <!-- Overlay: Start Screen / Main Menu -->
-            <div id="overlay-menu" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 z-20 transition-opacity duration-300">
-                <div class="text-center mb-6">
-                    <h2 class="text-4xl sm:text-6xl font-black font-orbitron tracking-widest text-cyan-400 neon-text-blue mb-2">NEON PONG</h2>
-                    <p class="text-slate-400 text-sm sm:text-base">클래식 아케이드 핑퐁 게임에 오신 것을 환영합니다!</p>
-                </div>
-
-                <div class="w-full max-w-sm flex flex-col gap-4">
-                    <!-- Mode Selection -->
-                    <div class="flex gap-2 p-1 bg-slate-900 border border-slate-800 rounded-xl">
-                        <button id="mode-vs-ai" class="flex-1 py-2 rounded-lg text-sm font-bold bg-cyan-500 text-slate-950 transition-all">1인용 (AI 대전)</button>
-                        <button id="mode-vs-player" class="flex-1 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all">2인용 (친구 대전)</button>
-                    </div>
-
-                    <!-- AI Difficulty (Hidden in 2P Mode) -->
-                    <div id="difficulty-box" class="flex flex-col gap-1.5">
-                        <label class="text-xs font-semibold text-slate-400">AI 난이도 설정</label>
-                        <div class="grid grid-cols-4 gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-xl">
-                            <button data-diff="easy" class="diff-btn py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white">쉬움</button>
-                            <button data-diff="medium" class="diff-btn py-1.5 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">보통</button>
-                            <button data-diff="hard" class="diff-btn py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white">어려움</button>
-                            <button data-diff="impossible" class="diff-btn py-1.5 rounded-lg text-xs font-bold text-pink-500 hover:text-pink-400">불가능</button>
-                        </div>
-                    </div>
-
-                    <!-- Target Score -->
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-xs font-semibold text-slate-400">목표 점수 (승리 조건)</label>
-                        <div class="grid grid-cols-3 gap-2">
-                            <button data-score="5" class="score-btn py-1.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 text-xs font-bold hover:border-cyan-500">5 점</button>
-                            <button data-score="10" class="score-btn py-1.5 rounded-xl border border-cyan-500 bg-cyan-500/20 text-cyan-400 text-xs font-bold">10 점</button>
-                            <button data-score="15" class="score-btn py-1.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 text-xs font-bold hover:border-cyan-500">15 점</button>
-                        </div>
-                    </div>
-
-                    <!-- Start Button -->
-                    <button id="btn-start" class="neon-btn w-full py-3.5 mt-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-slate-950 font-orbitron tracking-wider text-lg shadow-lg shadow-cyan-500/30 hover:from-cyan-400 hover:to-blue-500">
-                        GAME START
-                    </button>
-                </div>
+    <!-- Touch Area Visual Guide Footer -->
+    <footer class="w-full max-w-4xl py-1 px-2 shrink-0 text-[11px] text-slate-400 text-center">
+        <div class="flex justify-between items-center gap-2">
+            <div id="guide-p1" class="flex-1 py-1.5 px-2 bg-slate-900/60 rounded-lg border border-slate-800/80 flex items-center justify-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-cyan-400 inline-block"></span>
+                <span class="font-bold text-slate-300">P1 영역:</span> 
+                <span id="guide-p1-desc" class="truncate">좌측/하단 터치 드래그</span>
             </div>
-
-            <!-- Overlay: Pause Screen -->
-            <div id="overlay-pause" class="absolute inset-0 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center p-6 z-20 hidden">
-                <h2 class="text-3xl sm:text-5xl font-black font-orbitron text-amber-400 mb-6 tracking-widest">PAUSED</h2>
-                <div class="flex flex-col gap-3 w-48">
-                    <button id="btn-resume" class="neon-btn py-2.5 rounded-xl bg-cyan-500 text-slate-950 font-bold">계속하기</button>
-                    <button id="btn-restart" class="neon-btn py-2.5 rounded-xl bg-slate-800 text-slate-200 hover:text-white font-bold border border-slate-700">다시 시작</button>
-                    <button id="btn-main-menu" class="neon-btn py-2.5 rounded-xl bg-slate-800 text-slate-200 hover:text-white font-bold border border-slate-700">메인 메뉴</button>
-                </div>
-            </div>
-
-            <!-- Overlay: Game Over Screen -->
-            <div id="overlay-gameover" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 z-20 hidden">
-                <div class="text-center mb-6">
-                    <p id="winner-subtitle" class="text-slate-400 text-sm font-semibold mb-1">최종 승리자</p>
-                    <h2 id="winner-title" class="text-4xl sm:text-6xl font-black font-orbitron text-cyan-400 neon-text-blue mb-2">PLAYER 1 WIN!</h2>
-                    <p id="final-score" class="text-2xl font-orbitron text-slate-300 mt-2">10 : 8</p>
-                </div>
-
-                <div class="flex gap-4">
-                    <button id="btn-play-again" class="neon-btn px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold font-orbitron shadow-lg shadow-cyan-500/30">
-                        PLAY AGAIN
-                    </button>
-                    <button id="btn-menu-again" class="neon-btn px-6 py-3 rounded-xl bg-slate-800 text-slate-200 hover:text-white font-bold border border-slate-700">
-                        MENU
-                    </button>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- Controls Guide Footer -->
-        <div class="w-full mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-400">
-            <div class="bg-slate-900/80 border border-slate-800/80 rounded-xl p-3 flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center font-bold font-orbitron">P1</div>
-                <div>
-                    <div class="font-bold text-slate-200">플레이어 1 (왼쪽)</div>
-                    <div>키보드 <span class="bg-slate-800 px-1.5 py-0.5 rounded text-cyan-400 border border-slate-700">W</span> / <span class="bg-slate-800 px-1.5 py-0.5 rounded text-cyan-400 border border-slate-700">S</span> 또는 화면 터치/드래그</div>
-                </div>
-            </div>
-            <div class="bg-slate-900/80 border border-slate-800/80 rounded-xl p-3 flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-pink-500/10 border border-pink-500/30 text-pink-400 flex items-center justify-center font-bold font-orbitron">P2</div>
-                <div>
-                    <div class="font-bold text-slate-200">플레이어 2 (우측 / AI)</div>
-                    <div>키보드 <span class="bg-slate-800 px-1.5 py-0.5 rounded text-pink-400 border border-slate-700">↑</span> / <span class="bg-slate-800 px-1.5 py-0.5 rounded text-pink-400 border border-slate-700">↓</span> 또는 화면 터치/드래그</div>
-                </div>
+            <div id="guide-p2" class="flex-1 py-1.5 px-2 bg-slate-900/60 rounded-lg border border-slate-800/80 flex items-center justify-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-pink-500 inline-block"></span>
+                <span class="font-bold text-slate-300">P2/AI 영역:</span> 
+                <span id="guide-p2-desc" class="truncate">우측/상단 터치 드래그</span>
             </div>
         </div>
+    </footer>
 
-    </div>
-
-    <!-- JavaScript Game Logic -->
     <script>
         // ==========================================
-        // Sound Effects System (Web Audio API)
+        // Sound FX Engine (Touch-Unlocked Web Audio)
         // ==========================================
-        class SoundFX {
+        class MobileSoundFX {
             constructor() {
                 this.ctx = null;
                 this.muted = false;
             }
 
-            init() {
+            unlock() {
                 if (!this.ctx) {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) {
+                        this.ctx = new AudioCtx();
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
                 }
             }
 
-            playBeep(freq = 440, type = 'sine', duration = 0.08, volume = 0.1) {
-                if (this.muted || !this.ctx) return;
+            playTone(freq = 440, type = 'sine', duration = 0.08, volume = 0.15) {
+                if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
                 try {
                     const osc = this.ctx.createOscillator();
                     const gain = this.ctx.createGain();
@@ -216,178 +224,210 @@
                 } catch(e) {}
             }
 
-            playHitPaddle() {
-                this.playBeep(480, 'square', 0.06, 0.15);
-            }
-
-            playHitWall() {
-                this.playBeep(240, 'triangle', 0.05, 0.1);
-            }
-
+            playPaddleHit() { this.playTone(480, 'square', 0.06, 0.2); }
+            playWallHit() { this.playTone(220, 'triangle', 0.05, 0.15); }
             playScore() {
-                if (this.muted || !this.ctx) return;
-                // Double chime
-                this.playBeep(523.25, 'sine', 0.1, 0.2); // C5
-                setTimeout(() => this.playBeep(659.25, 'sine', 0.2, 0.2), 100); // E5
+                this.playTone(523.25, 'sine', 0.08, 0.2);
+                setTimeout(() => this.playTone(659.25, 'sine', 0.15, 0.2), 90);
             }
-
             playWin() {
-                if (this.muted || !this.ctx) return;
-                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-                notes.forEach((freq, idx) => {
-                    setTimeout(() => {
-                        this.playBeep(freq, 'triangle', 0.2, 0.25);
-                    }, idx * 120);
+                [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
+                    setTimeout(() => this.playTone(f, 'triangle', 0.18, 0.25), i * 110);
                 });
             }
         }
 
-        const sfx = new SoundFX();
+        const sfx = new MobileSoundFX();
+
+        // Unlock Audio on First Screen Interaction
+        ['touchstart', 'mousedown'].forEach(evt => {
+            window.addEventListener(evt, () => sfx.unlock(), { once: true });
+        });
 
         // ==========================================
-        // Game Engine & State Management
+        // Core Logic & Screen Layout Variables
         // ==========================================
         const canvas = document.getElementById('pongCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Game Configuration & State
         let gameState = 'MENU'; // 'MENU', 'PLAYING', 'PAUSED', 'GAMEOVER'
         let gameMode = 'AI'; // 'AI', 'PLAYER'
-        let aiDifficulty = 'medium'; // 'easy', 'medium', 'hard', 'impossible'
+        let aiDifficulty = 'medium';
         let targetScore = 10;
+        let isPortrait = false;
 
-        let scoreP1 = 0;
-        let scoreP2 = 0;
-        let animationFrameId = null;
+        // Virtual Coordinate Resolution
+        let BASE_W = 800;
+        let BASE_H = 450;
 
-        // Virtual Canvas Dimensions (Base logic resolution 800x450)
-        const BASE_WIDTH = 800;
-        const BASE_HEIGHT = 450;
+        // Paddle Dimensions
+        let paddleLength = 80;
+        let paddleThick = 12;
 
-        // Paddles Configuration
-        const PADDLE_WIDTH = 12;
-        const PADDLE_HEIGHT = 80;
-        const PADDLE_SPEED = 7;
+        // Player Objects
+        const p1 = { pos: 0, score: 0, color: '#00f3ff' };
+        const p2 = { pos: 0, score: 0, color: '#ff0055' };
 
-        const player1 = {
-            x: 20,
-            y: BASE_HEIGHT / 2 - PADDLE_HEIGHT / 2,
-            width: PADDLE_WIDTH,
-            height: PADDLE_HEIGHT,
-            vy: 0,
-            score: 0,
-            color: '#00f3ff'
-        };
-
-        const player2 = {
-            x: BASE_WIDTH - 20 - PADDLE_WIDTH,
-            y: BASE_HEIGHT / 2 - PADDLE_HEIGHT / 2,
-            width: PADDLE_WIDTH,
-            height: PADDLE_HEIGHT,
-            vy: 0,
-            score: 0,
-            color: '#ff0055'
-        };
-
-        // Ball Configuration
-        const BALL_RADIUS = 7;
-        const INITIAL_BALL_SPEED = 5;
-        const SPEED_INCREMENT = 0.35;
-        const MAX_BALL_SPEED = 14;
+        // Ball State
+        const INITIAL_SPEED = 5;
+        const SPEED_STEP = 0.35;
+        const MAX_SPEED = 15;
 
         const ball = {
-            x: BASE_WIDTH / 2,
-            y: BASE_HEIGHT / 2,
-            radius: BALL_RADIUS,
-            vx: INITIAL_BALL_SPEED,
+            x: 0,
+            y: 0,
+            radius: 8,
+            vx: 0,
             vy: 0,
-            speed: INITIAL_BALL_SPEED,
+            speed: INITIAL_SPEED,
             trail: []
         };
 
         // Particles Effect Pool
         let particles = [];
 
-        // Key states
-        const keys = {
-            w: false,
-            s: false,
-            ArrowUp: false,
-            ArrowDown: false
-        };
+        // Key Controls State for Keyboard Users
+        const keys = { w: false, s: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 
-        // ==========================================
-        // Input Handling
-        // ==========================================
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'w' || e.key === 'W') keys.w = true;
-            if (e.key === 's' || e.key === 'S') keys.s = true;
-            if (e.key === 'ArrowUp') keys.ArrowUp = true;
-            if (e.key === 'ArrowDown') keys.ArrowDown = true;
+        // Dynamic Screen & Orientation Adaptor
+        function updateLayout() {
+            const container = canvas.parentElement;
+            const w = container.clientWidth;
+            const h = container.clientHeight;
 
-            if (e.key === ' ' || e.key === 'Escape') {
-                if (gameState === 'PLAYING') togglePause();
-                else if (gameState === 'PAUSED') togglePause();
+            isPortrait = h > w * 1.1; // Treat as Portrait mode if significantly taller
+
+            const badge = document.getElementById('orientation-badge');
+            const hint = document.getElementById('control-hint-text');
+            const guideP1 = document.getElementById('guide-p1-desc');
+            const guideP2 = document.getElementById('guide-p2-desc');
+
+            if (isPortrait) {
+                BASE_W = 450;
+                BASE_H = 800;
+                paddleLength = 90;
+                paddleThick = 14;
+                if (badge) badge.innerText = 'PORTRAIT (상/하)';
+                if (hint) hint.innerHTML = '<i class="fa-solid fa-hand-pointer text-cyan-400"></i> 화면 상/하 영역을 터치해 패들을 조작하세요!';
+                if (guideP1) guideP1.innerText = '하단 터치 드래그';
+                if (guideP2) guideP2.innerText = '상단 터치 드래그';
+            } else {
+                BASE_W = 800;
+                BASE_H = 450;
+                paddleLength = 80;
+                paddleThick = 12;
+                if (badge) badge.innerText = 'LANDSCAPE (좌/우)';
+                if (hint) hint.innerHTML = '<i class="fa-solid fa-hand-pointer text-cyan-400"></i> 화면 좌/우 영역을 터치해 패들을 조작하세요!';
+                if (guideP1) guideP1.innerText = '좌측 터치 드래그';
+                if (guideP2) guideP2.innerText = '우측 터치 드래그';
             }
-        });
 
-        window.addEventListener('keyup', (e) => {
-            if (e.key === 'w' || e.key === 'W') keys.w = false;
-            if (e.key === 's' || e.key === 'S') keys.s = false;
-            if (e.key === 'ArrowUp') keys.ArrowUp = false;
-            if (e.key === 'ArrowDown') keys.ArrowDown = false;
-        });
+            canvas.width = BASE_W;
+            canvas.height = BASE_H;
 
-        // Touch Control for Mobile Device
-        let activeTouches = {};
+            // Clamp Paddles to Boundaries on layout change
+            clampPaddles();
+        }
 
-        canvas.addEventListener('touchstart', handleTouch, { passive: false });
-        canvas.addEventListener('touchmove', handleTouch, { passive: false });
-        canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+        function clampPaddles() {
+            const maxPos = (isPortrait ? BASE_W : BASE_H) - paddleLength;
+            p1.pos = Math.max(0, Math.min(maxPos, p1.pos));
+            p2.pos = Math.max(0, Math.min(maxPos, p2.pos));
+        }
 
-        function handleTouch(e) {
+        // Multi-touch Control Handling for Mobile Devices
+        function handleTouches(e) {
+            if (gameState !== 'PLAYING') return;
             e.preventDefault();
-            sfx.init();
+
             const rect = canvas.getBoundingClientRect();
-            const scaleY = BASE_HEIGHT / rect.height;
-            const scaleX = BASE_WIDTH / rect.width;
+            const scaleX = BASE_W / rect.width;
+            const scaleY = BASE_H / rect.height;
 
             for (let i = 0; i < e.touches.length; i++) {
                 const touch = e.touches[i];
-                const touchX = (touch.clientX - rect.left) * scaleX;
-                const touchY = (touch.clientY - rect.top) * scaleY;
+                const canvasX = (touch.clientX - rect.left) * scaleX;
+                const canvasY = (touch.clientY - rect.top) * scaleY;
 
-                if (touchX < BASE_WIDTH / 2) {
-                    // Left side touch -> Control Player 1
-                    player1.y = touchY - player1.height / 2;
-                } else if (gameMode === 'PLAYER') {
-                    // Right side touch in 2P mode -> Control Player 2
-                    player2.y = touchY - player2.height / 2;
+                if (isPortrait) {
+                    // Vertical Mode: Bottom half = P1, Top half = P2
+                    if (canvasY > BASE_H / 2) {
+                        p1.pos = canvasX - paddleLength / 2;
+                    } else if (gameMode === 'PLAYER') {
+                        p2.pos = canvasX - paddleLength / 2;
+                    }
+                } else {
+                    // Horizontal Mode: Left half = P1, Right half = P2
+                    if (canvasX < BASE_W / 2) {
+                        p1.pos = canvasY - paddleLength / 2;
+                    } else if (gameMode === 'PLAYER') {
+                        p2.pos = canvasY - paddleLength / 2;
+                    }
                 }
             }
+            clampPaddles();
         }
 
-        function handleTouchEnd(e) {
-            e.preventDefault();
+        ['touchstart', 'touchmove'].forEach(evt => {
+            canvas.addEventListener(evt, handleTouches, { passive: false });
+        });
+
+        // Mouse Drag Control for PC Preview
+        let isMouseDown = false;
+        canvas.addEventListener('mousedown', (e) => {
+            isMouseDown = true;
+            handleMouse(e);
+        });
+        canvas.addEventListener('mousemove', (e) => {
+            if (isMouseDown) handleMouse(e);
+        });
+        window.addEventListener('mouseup', () => isMouseDown = false);
+
+        function handleMouse(e) {
+            if (gameState !== 'PLAYING') return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = BASE_W / rect.width;
+            const scaleY = BASE_H / rect.height;
+            const mouseX = (e.clientX - rect.left) * scaleX;
+            const mouseY = (e.clientY - rect.top) * scaleY;
+
+            if (isPortrait) {
+                if (mouseY > BASE_H / 2) p1.pos = mouseX - paddleLength / 2;
+                else if (gameMode === 'PLAYER') p2.pos = mouseX - paddleLength / 2;
+            } else {
+                if (mouseX < BASE_W / 2) p1.pos = mouseY - paddleLength / 2;
+                else if (gameMode === 'PLAYER') p2.pos = mouseY - paddleLength / 2;
+            }
+            clampPaddles();
         }
 
-        // ==========================================
-        // Particle System
-        // ==========================================
+        // Keyboard Event Listeners
+        window.addEventListener('keydown', (e) => {
+            if (e.key in keys) keys[e.key] = true;
+            if (e.key === 'w' || e.key === 'W') keys.w = true;
+            if (e.key === 's' || e.key === 'S') keys.s = true;
+
+            if (e.key === ' ' || e.key === 'Escape') togglePause();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key in keys) keys[e.key] = false;
+            if (e.key === 'w' || e.key === 'W') keys.w = false;
+            if (e.key === 's' || e.key === 'S') keys.s = false;
+        });
+
         function createImpactParticles(x, y, color) {
-            const count = 16;
-            for (let i = 0; i < count; i++) {
+            for (let i = 0; i < 14; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 const speed = Math.random() * 4 + 1;
                 particles.push({
-                    x: x,
-                    y: y,
+                    x, y,
                     vx: Math.cos(angle) * speed,
                     vy: Math.sin(angle) * speed,
-                    radius: Math.random() * 3 + 1,
-                    color: color,
+                    radius: Math.random() * 2.5 + 1,
+                    color,
                     alpha: 1,
-                    life: Math.random() * 20 + 10
+                    life: Math.random() * 15 + 10
                 });
             }
         }
@@ -398,9 +438,7 @@
                 p.x += p.vx;
                 p.y += p.vy;
                 p.alpha -= 1 / p.life;
-                if (p.alpha <= 0) {
-                    particles.splice(i, 1);
-                }
+                if (p.alpha <= 0) particles.splice(i, 1);
             }
         }
 
@@ -410,7 +448,7 @@
                 ctx.globalAlpha = Math.max(0, p.alpha);
                 ctx.fillStyle = p.color;
                 ctx.shadowColor = p.color;
-                ctx.shadowBlur = 8;
+                ctx.shadowBlur = 6;
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
                 ctx.fill();
@@ -418,160 +456,196 @@
             });
         }
 
-        // ==========================================
-        // Physics & AI Logic
-        // ==========================================
-        function resetBall(winner) {
-            ball.x = BASE_WIDTH / 2;
-            ball.y = BASE_HEIGHT / 2;
-            ball.speed = INITIAL_BALL_SPEED;
+        function resetBall(server) {
+            ball.x = BASE_W / 2;
+            ball.y = BASE_H / 2;
+            ball.speed = INITIAL_SPEED;
             ball.trail = [];
 
-            // Direct ball towards the loser
-            const angle = (Math.random() * 0.6 - 0.3); // Slight random angle
-            const direction = winner === 'P1' ? 1 : -1;
-            ball.vx = Math.cos(angle) * ball.speed * direction;
-            ball.vy = Math.sin(angle) * ball.speed;
+            const angle = (Math.random() * 0.6 - 0.3);
+            const dir = server === 'P1' ? 1 : -1;
+
+            if (isPortrait) {
+                // Verticalserve: Serve up or down
+                ball.vx = Math.sin(angle) * ball.speed;
+                ball.vy = Math.cos(angle) * ball.speed * dir;
+            } else {
+                // Horizontal serve: Serve left or right
+                ball.vx = Math.cos(angle) * ball.speed * dir;
+                ball.vy = Math.sin(angle) * ball.speed;
+            }
         }
 
         function updateAI() {
-            const targetY = ball.y - player2.height / 2;
-            let aiSpeed = PADDLE_SPEED;
-            let reactionError = 0;
+            const ballTarget = isPortrait ? ball.x : ball.y;
+            const targetPos = ballTarget - paddleLength / 2;
 
-            switch (aiDifficulty) {
-                case 'easy':
-                    aiSpeed = PADDLE_SPEED * 0.45;
-                    reactionError = 35;
-                    break;
-                case 'medium':
-                    aiSpeed = PADDLE_SPEED * 0.7;
-                    reactionError = 15;
-                    break;
-                case 'hard':
-                    aiSpeed = PADDLE_SPEED * 0.95;
-                    reactionError = 5;
-                    break;
-                case 'impossible':
-                    aiSpeed = PADDLE_SPEED * 1.2;
-                    reactionError = 0;
-                    break;
-            }
+            let speed = 6;
+            if (aiDifficulty === 'easy') speed = 3.2;
+            else if (aiDifficulty === 'medium') speed = 5.2;
+            else if (aiDifficulty === 'hard') speed = 7.5;
+            else if (aiDifficulty === 'impossible') speed = 12;
 
-            // Move AI paddle towards predicted position with slight smoothing
-            if (ball.vx > 0) { // Only track effectively when ball moves towards AI
-                const diff = (targetY + reactionError) - player2.y;
-                if (Math.abs(diff) > 4) {
-                    player2.y += Math.sign(diff) * Math.min(Math.abs(diff), aiSpeed);
-                }
-            } else {
-                // Return to center slowly when ball is moving away
-                const centerDiff = (BASE_HEIGHT / 2 - player2.height / 2) - player2.y;
-                if (Math.abs(centerDiff) > 10) {
-                    player2.y += Math.sign(centerDiff) * (aiSpeed * 0.3);
-                }
+            const diff = targetPos - p2.pos;
+            if (Math.abs(diff) > 3) {
+                p2.pos += Math.sign(diff) * Math.min(Math.abs(diff), speed);
             }
         }
 
-        function update() {
+        function updatePhysics() {
             if (gameState !== 'PLAYING') return;
 
-            // Player 1 Movement
-            if (keys.w) player1.y -= PADDLE_SPEED;
-            if (keys.s) player1.y += PADDLE_SPEED;
+            const speedKeyboard = 7;
 
-            // Player 2 Movement (AI or Human)
-            if (gameMode === 'PLAYER') {
-                if (keys.ArrowUp) player2.y -= PADDLE_SPEED;
-                if (keys.ArrowDown) player2.y += PADDLE_SPEED;
+            // Keyboard Control Updates
+            if (isPortrait) {
+                if (keys.ArrowLeft || keys.w) p1.pos -= speedKeyboard;
+                if (keys.ArrowRight || keys.s) p1.pos += speedKeyboard;
+                if (gameMode === 'PLAYER') {
+                    if (keys.w) p2.pos -= speedKeyboard;
+                    if (keys.s) p2.pos += speedKeyboard;
+                }
             } else {
-                updateAI();
+                if (keys.w) p1.pos -= speedKeyboard;
+                if (keys.s) p1.pos += speedKeyboard;
+                if (gameMode === 'PLAYER') {
+                    if (keys.ArrowUp) p2.pos -= speedKeyboard;
+                    if (keys.ArrowDown) p2.pos += speedKeyboard;
+                }
             }
 
-            // Clamp Paddles to Screen Bounds
-            player1.y = Math.max(0, Math.min(BASE_HEIGHT - player1.height, player1.y));
-            player2.y = Math.max(0, Math.min(BASE_HEIGHT - player2.height, player2.y));
+            if (gameMode === 'AI') updateAI();
+            clampPaddles();
 
-            // Ball Trail Effect
+            // Trail
             ball.trail.push({ x: ball.x, y: ball.y });
-            if (ball.trail.length > 8) ball.trail.shift();
+            if (ball.trail.length > 7) ball.trail.shift();
 
-            // Ball Movement
+            // Ball Position Update
             ball.x += ball.vx;
             ball.y += ball.vy;
 
-            // Top/Bottom Wall Collisions
-            if (ball.y - ball.radius <= 0) {
-                ball.y = ball.radius;
-                ball.vy *= -1;
-                sfx.playHitWall();
-            } else if (ball.y + ball.radius >= BASE_HEIGHT) {
-                ball.y = BASE_HEIGHT - ball.radius;
-                ball.vy *= -1;
-                sfx.playHitWall();
-            }
+            // Collision Handling
+            if (isPortrait) {
+                // Portrait Collisions: Wall = Left/Right, Scoring = Top/Bottom
+                if (ball.x - ball.radius <= 0) {
+                    ball.x = ball.radius;
+                    ball.vx *= -1;
+                    sfx.playWallHit();
+                } else if (ball.x + ball.radius >= BASE_W) {
+                    ball.x = BASE_W - ball.radius;
+                    ball.vx *= -1;
+                    sfx.playWallHit();
+                }
 
-            // Paddle 1 Collision
-            if (ball.x - ball.radius <= player1.x + player1.width &&
-                ball.x + ball.radius >= player1.x &&
-                ball.y >= player1.y &&
-                ball.y <= player1.y + player1.height) {
-                
-                ball.x = player1.x + player1.width + ball.radius; // Prevent clipping
-                
-                // Angle calculation based on hit location relative to paddle center
-                const hitPoint = (ball.y - (player1.y + player1.height / 2)) / (player1.height / 2);
-                const maxAngle = Math.PI / 3.5; // Max 51 degrees bounce
-                const bounceAngle = hitPoint * maxAngle;
+                // P1 Paddle Collision (Bottom)
+                const p1Y = BASE_H - 25 - paddleThick;
+                if (ball.y + ball.radius >= p1Y && ball.y - ball.radius <= p1Y + paddleThick &&
+                    ball.x >= p1.pos && ball.x <= p1.pos + paddleLength && ball.vy > 0) {
+                    
+                    ball.y = p1Y - ball.radius;
+                    const hit = (ball.x - (p1.pos + paddleLength / 2)) / (paddleLength / 2);
+                    const angle = hit * (Math.PI / 3.5);
 
-                ball.speed = Math.min(MAX_BALL_SPEED, ball.speed + SPEED_INCREMENT);
-                ball.vx = Math.cos(bounceAngle) * ball.speed;
-                ball.vy = Math.sin(bounceAngle) * ball.speed;
+                    ball.speed = Math.min(MAX_SPEED, ball.speed + SPEED_STEP);
+                    ball.vx = Math.sin(angle) * ball.speed;
+                    ball.vy = -Math.cos(angle) * ball.speed;
 
-                createImpactParticles(ball.x, ball.y, player1.color);
-                sfx.playHitPaddle();
-            }
+                    createImpactParticles(ball.x, ball.y, p1.color);
+                    sfx.playPaddleHit();
+                }
 
-            // Paddle 2 Collision
-            if (ball.x + ball.radius >= player2.x &&
-                ball.x - ball.radius <= player2.x + player2.width &&
-                ball.y >= player2.y &&
-                ball.y <= player2.y + player2.height) {
+                // P2 Paddle Collision (Top)
+                const p2Y = 25;
+                if (ball.y - ball.radius <= p2Y + paddleThick && ball.y + ball.radius >= p2Y &&
+                    ball.x >= p2.pos && ball.x <= p2.pos + paddleLength && ball.vy < 0) {
+                    
+                    ball.y = p2Y + paddleThick + ball.radius;
+                    const hit = (ball.x - (p2.pos + paddleLength / 2)) / (paddleLength / 2);
+                    const angle = hit * (Math.PI / 3.5);
 
-                ball.x = player2.x - ball.radius; // Prevent clipping
+                    ball.speed = Math.min(MAX_SPEED, ball.speed + SPEED_STEP);
+                    ball.vx = Math.sin(angle) * ball.speed;
+                    ball.vy = Math.cos(angle) * ball.speed;
 
-                const hitPoint = (ball.y - (player2.y + player2.height / 2)) / (player2.height / 2);
-                const maxAngle = Math.PI / 3.5;
-                const bounceAngle = hitPoint * maxAngle;
+                    createImpactParticles(ball.x, ball.y, p2.color);
+                    sfx.playPaddleHit();
+                }
 
-                ball.speed = Math.min(MAX_BALL_SPEED, ball.speed + SPEED_INCREMENT);
-                ball.vx = -Math.cos(bounceAngle) * ball.speed;
-                ball.vy = Math.sin(bounceAngle) * ball.speed;
+                // Score Check
+                if (ball.y - ball.radius > BASE_H) {
+                    p2.score++;
+                    sfx.playScore();
+                    checkGameOver() || resetBall('P2');
+                } else if (ball.y + ball.radius < 0) {
+                    p1.score++;
+                    sfx.playScore();
+                    checkGameOver() || resetBall('P1');
+                }
 
-                createImpactParticles(ball.x, ball.y, player2.color);
-                sfx.playHitPaddle();
-            }
+            } else {
+                // Landscape Collisions: Wall = Top/Bottom, Scoring = Left/Right
+                if (ball.y - ball.radius <= 0) {
+                    ball.y = ball.radius;
+                    ball.vy *= -1;
+                    sfx.playWallHit();
+                } else if (ball.y + ball.radius >= BASE_H) {
+                    ball.y = BASE_H - ball.radius;
+                    ball.vy *= -1;
+                    sfx.playWallHit();
+                }
 
-            // Scoring Conditions
-            if (ball.x + ball.radius < 0) {
-                // Player 2 Scores
-                player2.score++;
-                createImpactParticles(0, ball.y, player2.color);
-                sfx.playScore();
-                checkGameOver() || resetBall('P2');
-            } else if (ball.x - ball.radius > BASE_WIDTH) {
-                // Player 1 Scores
-                player1.score++;
-                createImpactParticles(BASE_WIDTH, ball.y, player1.color);
-                sfx.playScore();
-                checkGameOver() || resetBall('P1');
+                // P1 Paddle Collision (Left)
+                const p1X = 25;
+                if (ball.x - ball.radius <= p1X + paddleThick && ball.x + ball.radius >= p1X &&
+                    ball.y >= p1.pos && ball.y <= p1.pos + paddleLength && ball.vx < 0) {
+                    
+                    ball.x = p1X + paddleThick + ball.radius;
+                    const hit = (ball.y - (p1.pos + paddleLength / 2)) / (paddleLength / 2);
+                    const angle = hit * (Math.PI / 3.5);
+
+                    ball.speed = Math.min(MAX_SPEED, ball.speed + SPEED_STEP);
+                    ball.vx = Math.cos(angle) * ball.speed;
+                    ball.vy = Math.sin(angle) * ball.speed;
+
+                    createImpactParticles(ball.x, ball.y, p1.color);
+                    sfx.playPaddleHit();
+                }
+
+                // P2 Paddle Collision (Right)
+                const p2X = BASE_W - 25 - paddleThick;
+                if (ball.x + ball.radius >= p2X && ball.x - ball.radius <= p2X + paddleThick &&
+                    ball.y >= p2.pos && ball.y <= p2.pos + paddleLength && ball.vx > 0) {
+                    
+                    ball.x = p2X - ball.radius;
+                    const hit = (ball.y - (p2.pos + paddleLength / 2)) / (paddleLength / 2);
+                    const angle = hit * (Math.PI / 3.5);
+
+                    ball.speed = Math.min(MAX_SPEED, ball.speed + SPEED_STEP);
+                    ball.vx = -Math.cos(angle) * ball.speed;
+                    ball.vy = Math.sin(angle) * ball.speed;
+
+                    createImpactParticles(ball.x, ball.y, p2.color);
+                    sfx.playPaddleHit();
+                }
+
+                // Score Check
+                if (ball.x - ball.radius > BASE_W) {
+                    p1.score++;
+                    sfx.playScore();
+                    checkGameOver() || resetBall('P1');
+                } else if (ball.x + ball.radius < 0) {
+                    p2.score++;
+                    sfx.playScore();
+                    checkGameOver() || resetBall('P2');
+                }
             }
 
             updateParticles();
         }
 
         function checkGameOver() {
-            if (player1.score >= targetScore || player2.score >= targetScore) {
+            if (p1.score >= targetScore || p2.score >= targetScore) {
                 gameState = 'GAMEOVER';
                 sfx.playWin();
                 showGameOverScreen();
@@ -580,129 +654,114 @@
             return false;
         }
 
-        // ==========================================
-        // Render Functions
-        // ==========================================
-        function draw() {
-            // Clear Screen
-            ctx.fillStyle = '#090a0f';
-            ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+        function render() {
+            // Background
+            ctx.fillStyle = '#05070f';
+            ctx.fillRect(0, 0, BASE_W, BASE_H);
 
-            // Draw Background Grid & Center Line
+            // Center Dividing Line
             ctx.save();
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-            ctx.lineWidth = 1;
-            for (let i = 0; i < BASE_WIDTH; i += 40) {
-                ctx.beginPath();
-                ctx.moveTo(i, 0);
-                ctx.lineTo(i, BASE_HEIGHT);
-                ctx.stroke();
-            }
-
-            // Center Net Line
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-            ctx.lineWidth = 3;
-            ctx.setLineDash([10, 10]);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 8]);
             ctx.beginPath();
-            ctx.moveTo(BASE_WIDTH / 2, 0);
-            ctx.lineTo(BASE_WIDTH / 2, BASE_HEIGHT);
+            if (isPortrait) {
+                ctx.moveTo(0, BASE_H / 2);
+                ctx.lineTo(BASE_W, BASE_H / 2);
+            } else {
+                ctx.moveTo(BASE_W / 2, 0);
+                ctx.lineTo(BASE_W / 2, BASE_H);
+            }
             ctx.stroke();
             ctx.restore();
 
-            // Draw Scores in Background
+            // Background Scores
             ctx.save();
-            ctx.font = '900 72px Orbitron';
+            ctx.font = '900 64px Orbitron';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            // P1 Score
-            ctx.fillStyle = 'rgba(0, 243, 255, 0.15)';
-            ctx.fillText(player1.score, BASE_WIDTH / 4, BASE_HEIGHT / 2);
-
-            // P2 Score
-            ctx.fillStyle = 'rgba(255, 0, 85, 0.15)';
-            ctx.fillText(player2.score, (BASE_WIDTH / 4) * 3, BASE_HEIGHT / 2);
+            if (isPortrait) {
+                ctx.fillStyle = 'rgba(255, 0, 85, 0.12)';
+                ctx.fillText(p2.score, BASE_W / 2, BASE_H / 4);
+                ctx.fillStyle = 'rgba(0, 243, 255, 0.12)';
+                ctx.fillText(p1.score, BASE_W / 2, (BASE_H / 4) * 3);
+            } else {
+                ctx.fillStyle = 'rgba(0, 243, 255, 0.12)';
+                ctx.fillText(p1.score, BASE_W / 4, BASE_H / 2);
+                ctx.fillStyle = 'rgba(255, 0, 85, 0.12)';
+                ctx.fillText(p2.score, (BASE_W / 4) * 3, BASE_H / 2);
+            }
             ctx.restore();
 
             // Draw Paddles
-            drawPaddle(player1);
-            drawPaddle(player2);
+            if (isPortrait) {
+                drawRoundedRect(p1.pos, BASE_H - 25 - paddleThick, paddleLength, paddleThick, p1.color);
+                drawRoundedRect(p2.pos, 25, paddleLength, paddleThick, p2.color);
+            } else {
+                drawRoundedRect(25, p1.pos, paddleThick, paddleLength, p1.color);
+                drawRoundedRect(BASE_W - 25 - paddleThick, p2.pos, paddleThick, paddleLength, p2.color);
+            }
 
-            // Draw Ball Trail
-            ball.trail.forEach((pos, idx) => {
-                const alpha = (idx + 1) / ball.trail.length * 0.4;
-                const radius = ball.radius * ((idx + 1) / ball.trail.length);
+            // Ball Trail
+            ball.trail.forEach((pt, idx) => {
+                const alpha = (idx + 1) / ball.trail.length * 0.35;
+                const rad = ball.radius * ((idx + 1) / ball.trail.length);
                 ctx.save();
                 ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
                 ctx.beginPath();
-                ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+                ctx.arc(pt.x, pt.y, rad, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
             });
 
-            // Draw Ball
+            // Ball
             ctx.save();
             ctx.fillStyle = '#ffffff';
             ctx.shadowColor = '#00f3ff';
-            ctx.shadowBlur = 12;
+            ctx.shadowBlur = 10;
             ctx.beginPath();
             ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
 
-            // Draw Particles
+            // Particles
             drawParticles();
         }
 
-        function drawPaddle(p) {
+        function drawRoundedRect(x, y, w, h, color) {
             ctx.save();
-            ctx.fillStyle = p.color;
-            ctx.shadowColor = p.color;
-            ctx.shadowBlur = 15;
-            
-            // Rounded rectangle paddle
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 12;
             const r = 4;
             ctx.beginPath();
-            ctx.moveTo(p.x + r, p.y);
-            ctx.lineTo(p.x + p.width - r, p.y);
-            ctx.quadraticCurveTo(p.x + p.width, p.y, p.x + p.width, p.y + r);
-            ctx.lineTo(p.x + p.width, p.y + p.height - r);
-            ctx.quadraticCurveTo(p.x + p.width, p.y + p.height, p.x + p.width - r, p.y + p.height);
-            ctx.lineTo(p.x + r, p.y + p.height);
-            ctx.quadraticCurveTo(p.x, p.y + p.height, p.x, p.y + p.height - r);
-            ctx.lineTo(p.x, p.y + r);
-            ctx.quadraticCurveTo(p.x, p.y, p.x + r, p.y);
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
             ctx.closePath();
             ctx.fill();
             ctx.restore();
         }
 
-        // Responsive Resolution Resize Handler
-        function resizeCanvas() {
-            const container = canvas.parentElement;
-            const width = container.clientWidth;
-            const height = container.clientHeight;
-
-            canvas.width = BASE_WIDTH;
-            canvas.height = BASE_HEIGHT;
-        }
-
-        // ==========================================
-        // Main Game Loop
-        // ==========================================
         function gameLoop() {
-            update();
-            draw();
-            animationFrameId = requestAnimationFrame(gameLoop);
+            updatePhysics();
+            render();
+            requestAnimationFrame(gameLoop);
         }
 
-        // UI Flow Actions
         function startGame() {
-            sfx.init();
-            player1.score = 0;
-            player2.score = 0;
-            player1.y = BASE_HEIGHT / 2 - PADDLE_HEIGHT / 2;
-            player2.y = BASE_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+            sfx.unlock();
+            p1.score = 0;
+            p2.score = 0;
+            p1.pos = ((isPortrait ? BASE_W : BASE_H) - paddleLength) / 2;
+            p2.pos = ((isPortrait ? BASE_W : BASE_H) - paddleLength) / 2;
             particles = [];
 
             resetBall(Math.random() > 0.5 ? 'P1' : 'P2');
@@ -733,17 +792,17 @@
             const winnerSub = document.getElementById('winner-subtitle');
             const finalScore = document.getElementById('final-score');
 
-            if (player1.score >= targetScore) {
+            if (p1.score >= targetScore) {
                 winnerTitle.innerText = 'PLAYER 1 WIN!';
-                winnerTitle.className = 'text-4xl sm:text-6xl font-black font-orbitron text-cyan-400 neon-text-blue mb-2';
-                winnerSub.innerText = gameMode === 'AI' ? '플레이어 승리!' : '1P 플레이어 승리!';
+                winnerTitle.className = 'text-3xl sm:text-5xl font-black font-orbitron text-cyan-400 neon-glow-blue mb-2';
+                winnerSub.innerText = gameMode === 'AI' ? '플레이어 승리!' : '1P 승리!';
             } else {
                 winnerTitle.innerText = gameMode === 'AI' ? 'AI WIN!' : 'PLAYER 2 WIN!';
-                winnerTitle.className = 'text-4xl sm:text-6xl font-black font-orbitron text-pink-500 neon-text-pink mb-2';
-                winnerSub.innerText = gameMode === 'AI' ? '인공지능 승리!' : '2P 플레이어 승리!';
+                winnerTitle.className = 'text-3xl sm:text-5xl font-black font-orbitron text-pink-500 neon-glow-pink mb-2';
+                winnerSub.innerText = gameMode === 'AI' ? '인공지능 승리!' : '2P 승리!';
             }
 
-            finalScore.innerText = `${player1.score} : ${player2.score}`;
+            finalScore.innerText = `${p1.score} : ${p2.score}`;
             document.getElementById('overlay-gameover').classList.remove('hidden');
         }
 
@@ -756,50 +815,46 @@
             document.getElementById('text-pause').innerText = '일시정지';
         }
 
-        // ==========================================
-        // UI Menu Event Listeners
-        // ==========================================
+        // Mode Options Listener
         document.getElementById('mode-vs-ai').addEventListener('click', (e) => {
             gameMode = 'AI';
-            e.target.className = 'flex-1 py-2 rounded-lg text-sm font-bold bg-cyan-500 text-slate-950 transition-all';
-            document.getElementById('mode-vs-player').className = 'flex-1 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all';
+            e.target.className = 'flex-1 py-2.5 rounded-lg text-xs sm:text-sm font-bold bg-cyan-500 text-slate-950 shadow-md transition-all';
+            document.getElementById('mode-vs-player').className = 'flex-1 py-2.5 rounded-lg text-xs sm:text-sm font-bold text-slate-400 hover:text-white transition-all';
             document.getElementById('difficulty-box').classList.remove('hidden');
         });
 
         document.getElementById('mode-vs-player').addEventListener('click', (e) => {
             gameMode = 'PLAYER';
-            e.target.className = 'flex-1 py-2 rounded-lg text-sm font-bold bg-pink-500 text-slate-950 transition-all';
-            document.getElementById('mode-vs-ai').className = 'flex-1 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-all';
+            e.target.className = 'flex-1 py-2.5 rounded-lg text-xs sm:text-sm font-bold bg-pink-500 text-slate-950 shadow-md transition-all';
+            document.getElementById('mode-vs-ai').className = 'flex-1 py-2.5 rounded-lg text-xs sm:text-sm font-bold text-slate-400 hover:text-white transition-all';
             document.getElementById('difficulty-box').classList.add('hidden');
         });
 
-        // Difficulty Buttons
+        // Difficulty Listeners
         document.querySelectorAll('.diff-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.diff-btn').forEach(b => {
-                    b.className = 'diff-btn py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white';
+                    b.className = 'diff-btn py-2 rounded-lg text-xs font-bold text-slate-400';
                 });
                 aiDifficulty = e.target.dataset.diff;
-                if (aiDifficulty === 'impossible') {
-                    e.target.className = 'diff-btn py-1.5 rounded-lg text-xs font-bold bg-pink-500/20 text-pink-400 border border-pink-500/40';
-                } else {
-                    e.target.className = 'diff-btn py-1.5 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/40';
-                }
+                e.target.className = aiDifficulty === 'impossible' 
+                    ? 'diff-btn py-2 rounded-lg text-xs font-bold bg-pink-500/20 text-pink-400 border border-pink-500/40'
+                    : 'diff-btn py-2 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/40';
             });
         });
 
-        // Target Score Buttons
+        // Target Score Listeners
         document.querySelectorAll('.score-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.score-btn').forEach(b => {
-                    b.className = 'score-btn py-1.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 text-xs font-bold hover:border-cyan-500';
+                    b.className = 'score-btn py-2 rounded-xl border border-slate-800 bg-slate-900 text-slate-300 text-xs font-bold';
                 });
                 targetScore = parseInt(e.target.dataset.score);
-                e.target.className = 'score-btn py-1.5 rounded-xl border border-cyan-500 bg-cyan-500/20 text-cyan-400 text-xs font-bold';
+                e.target.className = 'score-btn py-2 rounded-xl border border-cyan-500 bg-cyan-500/20 text-cyan-400 text-xs font-bold';
             });
         });
 
-        // Buttons Action
+        // Control Buttons
         document.getElementById('btn-start').addEventListener('click', startGame);
         document.getElementById('btn-pause').addEventListener('click', togglePause);
         document.getElementById('btn-resume').addEventListener('click', togglePause);
@@ -808,22 +863,23 @@
         document.getElementById('btn-play-again').addEventListener('click', startGame);
         document.getElementById('btn-menu-again').addEventListener('click', openMainMenu);
 
-        // Sound Toggle Button
         document.getElementById('btn-sound').addEventListener('click', () => {
             sfx.muted = !sfx.muted;
-            const icon = document.getElementById('icon-sound');
-            if (sfx.muted) {
-                icon.className = 'fa-solid fa-volume-xmark text-slate-500';
-            } else {
-                icon.className = 'fa-solid fa-volume-high text-cyan-400';
-            }
+            document.getElementById('icon-sound').className = sfx.muted ? 'fa-solid fa-volume-xmark text-slate-500' : 'fa-solid fa-volume-high text-cyan-400';
         });
 
-        // Initialize Application
-        window.addEventListener('resize', resizeCanvas);
+        // Window Events
+        window.addEventListener('resize', () => {
+            updateLayout();
+        });
 
+        window.addEventListener('orientationchange', () => {
+            setTimeout(updateLayout, 150);
+        });
+
+        // Boot Initialization
         window.onload = function() {
-            resizeCanvas();
+            updateLayout();
             requestAnimationFrame(gameLoop);
         };
     </script>
