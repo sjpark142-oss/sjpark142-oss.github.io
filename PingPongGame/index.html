@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link rel="icon" type="image/x-icon" href="https://raw.githubusercontent.com/sjpark142-oss/sjpark142-oss.github.io/main/PingPongGame/icon.ico">
     <title>PingPong</title>
-    <title>PingPong</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -26,6 +25,23 @@
             overflow: hidden;
             width: 100vw;
             height: 100vh;
+        }
+
+        .neon-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .neon-scrollbar::-webkit-scrollbar-track {
+            background: #05070f;
+            border-radius: 9999px;
+        }
+        .neon-scrollbar::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border: 1px solid #00f3ff;
+            border-radius: 9999px;
+        }
+        .neon-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #00f3ff;
         }
 
         .font-orbitron {
@@ -84,12 +100,12 @@
     </header>
 
     <!-- Main Game Canvas Container -->
-    <main class="relative w-full flex-1 max-w-4xl max-h-[82vh] rounded-2xl overflow-hidden border border-slate-800/80 bg-slate-950 shadow-2xl flex items-center justify-center my-auto">
-        
-        <canvas id="pongCanvas" class="w-full h-full block bg-slate-950 touch-none"></canvas>
+    <main class="relative w-full flex-1 max-w-4xl max-h-[82vh] overflow-auto neon-scrollbar rounded-2xl border border-slate-800/80 bg-slate-950 shadow-2xl flex items-center justify-center my-auto">
+        <div id="canvas-wrapper" class="relative w-full h-full min-w-[320px] min-h-[380px] flex items-center justify-center m-auto">
+            <canvas id="pongCanvas" class="w-full h-full block bg-slate-950 touch-none rounded-xl"></canvas>
 
-        <!-- Overlay 1: Main Menu -->
-        <div id="overlay-menu" class="overlay-fade-enter absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-between p-4 sm:p-6 z-20 overflow-y-auto">
+            <!-- Overlay 1: Main Menu -->
+            <div id="overlay-menu" class="overlay-fade-enter absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-between p-4 sm:p-6 z-20 overflow-y-auto">
             <div class="text-center my-auto">
                 <h2 class="text-3xl sm:text-5xl font-black font-orbitron tracking-widest text-cyan-400 neon-glow-blue mb-1">NEON PONG</h2>
                 <p class="text-slate-400 text-xs sm:text-sm font-medium">모바일 스마트 터치 지원 탁구 게임</p>
@@ -165,7 +181,7 @@
                 </button>
             </div>
         </div>
-
+        </div>
     </main>
 
     <!-- Touch Area Visual Guide Footer -->
@@ -293,9 +309,9 @@
 
         // Dynamic Screen & Orientation Adaptor
         function updateLayout() {
-            const container = canvas.parentElement;
-            const w = container.clientWidth;
-            const h = container.clientHeight;
+            const wrapper = document.getElementById('canvas-wrapper');
+            const w = Math.max(wrapper.clientWidth, 320);
+            const h = Math.max(wrapper.clientHeight, 380);
 
             isPortrait = h > w * 1.1; // Treat as Portrait mode if significantly taller
 
@@ -305,8 +321,8 @@
             const guideP2 = document.getElementById('guide-p2-desc');
 
             if (isPortrait) {
-                BASE_W = 450;
-                BASE_H = 800;
+                BASE_W = Math.max(320, w);
+                BASE_H = Math.max(480, h);
                 paddleLength = 90;
                 paddleThick = 14;
                 if (badge) badge.innerText = 'PORTRAIT (상/하)';
@@ -314,8 +330,8 @@
                 if (guideP1) guideP1.innerText = '하단 터치 드래그';
                 if (guideP2) guideP2.innerText = '상단 터치 드래그';
             } else {
-                BASE_W = 800;
-                BASE_H = 450;
+                BASE_W = Math.max(500, w);
+                BASE_H = Math.max(320, h);
                 paddleLength = 80;
                 paddleThick = 12;
                 if (badge) badge.innerText = 'LANDSCAPE (좌/우)';
