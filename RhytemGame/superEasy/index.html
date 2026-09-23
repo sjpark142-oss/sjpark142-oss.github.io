@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🎵 무적 리듬게임 🎵</title>
+    <style>
+        body { text-align: center; background: #222; color: white; font-family: 'Malgun Gothic', sans-serif; margin: 0; padding: 20px; touch-action: manipulation; }
+        .container { display: flex; justify-content: center; gap: 30px; align-items: flex-start; flex-wrap: wrap; }
+        
+        .control-panel { width: 400px; background: #333; padding: 20px; border-radius: 10px; text-align: left; }
+        .control-panel h3 { margin-top: 0; color: #ffeb3b; border-bottom: 2px solid #555; padding-bottom: 5px; }
+        .control-panel h3.player-mode { color: #00ffcc; margin-top: 25px;}
+        
+        button, input[type="file"], select, input[type="number"] { margin-bottom: 10px; padding: 10px; font-size: 14px; width: 100%; box-sizing: border-box; cursor: pointer; border-radius: 5px; font-weight: bold;}
+        input[type="file"] { background: #111; color: white; border: 1px solid #777; font-weight: normal;}
+        select, input[type="number"] { background: #111; color: white; border: 1px solid #00ffcc; }
+        button:hover { filter: brightness(1.2); }
+        
+        .btn-record { background: #ff4444; color: white; border: none; }
+        .btn-auto { background: #9c27b0; color: white; border: none; font-size: 15px; padding: 12px; box-shadow: 0 0 10px #9c27b0; animation: pulse 2s infinite;}
+        .btn-save { background: #ff9800; color: white; border: none; font-size: 14px; padding: 10px;}
+        .btn-play { background: #44cc44; color: white; border: none; font-size: 16px; padding: 12px; margin-top: 10px;}
+        .btn-stop { background: #777; color: white; border: none; }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        .settings-box { background: #222; padding: 15px; border-radius: 5px; margin-bottom: 15px; border: 1px dashed #555; }
+        .settings-box h4 { margin: 0 0 10px 0; color: #fff; }
+        .flex-row { display: flex; gap: 5px; margin-bottom: 10px; align-items: center; justify-content: space-between;}
+        .key-input { width: 45px; height: 35px; text-align: center; font-size: 18px; font-weight: bold; text-transform: uppercase; background: #111; color: #00ffcc; border: 2px solid #00ffcc; border-radius: 5px; margin-right: 5px;}
+        .btn-apply { background: #8bc34a; color: #000; padding: 8px; margin-top: 5px; }
+
+        .status-header { width: 100%; max-width: 600px; margin: 0 auto 10px; display: flex; flex-direction: column; align-items: center; }
+        #score-display { font-size: 24px; font-weight: bold; color: #ffeb3b; margin-bottom: 5px; }
+        #hp-container { width: 100%; height: 20px; background: #444; border-radius: 10px; border: 2px solid #777; overflow: hidden; }
+        #hp-bar { width: 100%; height: 100%; background: #00ffcc; transition: width 0.2s ease, background-color 0.2s ease; box-shadow: 0 0 10px #00ffcc; }
+
+        /* 터치 게임 전용 보드 세팅 */
+        #game-board { 
+            width: 400px; height: 600px; background: #111; 
+            position: relative; overflow: hidden; 
+            border: 4px solid #555; border-radius: 10px;
+            transition: background-color 0.1s ease, width 0.3s ease;
+            touch-action: none; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #game-board.miss-flash { background-color: rgba(255, 0, 0, 0.4) !important; }
+
+        /* 레인(줄)을 터치 가능하게 설정 */
+        .lane { 
+            width: 100px; height: 100%; position: absolute; top: 0; 
+            border-right: 1px dashed #333; box-sizing: border-box; 
+            cursor: pointer; 
+            -webkit-tap-highlight-color: transparent; 
+        }
+        
+        /* 모바일 터치 유도용 시각 패드 */
+        .touch-pad {
+            position: absolute; bottom: 0; width: 100%; height: 120px;
+            background: linear-gradient(to top, rgba(255,255,255,0.15), transparent);
+            pointer-events: none; 
+        }
+
+        .hit-line { width: 100%; height: 30px; background: rgba(255, 255, 0, 0.2); position: absolute; top: 520px; border-top: 2px solid yellow; border-bottom: 2px solid yellow; pointer-events: none;}
+        .note { width: 90px; height: 20px; background: #00ffcc; position: absolute; left: 5px; border-radius: 10px; box-shadow: 0 0 10px #00ffcc; pointer-events: none; will-change: transform;}
+        .note.recorded { background: #ff4444; box-shadow: 0 0 10px #ff4444; } 
+        .key-hint { position: absolute; bottom: 10px; width: 100px; text-align: center; font-weight: bold; font-size: 24px; color: #aaa; pointer-events: none;}
+        
+        .status { font-size: 18px; font-weight: bold; color: #00ffcc; margin-bottom: 10px; }
+        
+        .result-message {
+            display: none; position: absolute; top: 250px; left: 50%; transform: translateX(-50%);
+            width: 80%; max-width: 300px; background: rgba(0, 0, 0, 0.9); font-size: 26px; font-weight: bold; 
+            padding: 20px 0; border-radius: 15px; z-index: 10;
+        }
+        #clear-message { color: #ffeb3b; border: 3px solid #ffeb3b; }
+        #gameover-message { color: #ff4444; border: 3px solid #ff4444; }
+
+        audio { display: none; }
+        
+        .file-upload-wrapper { position: relative; overflow: hidden; display: inline-block; width: 100%; margin-bottom: 0px;}
+        .file-upload-wrapper input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; height: 100%; }
+        .btn-upload-custom { display: block; background: #2196F3; color: white; padding: 10px; border-radius: 5px; text-align: center; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🎵 음악 리듬게임 수제 무적모드 🎵</h1>
+    
+    <div class="status-header">
+        <div id="score-display">점수: <span id="score">0</span></div>
+        <div id="hp-container"><div id="hp-bar"></div></div>
+    </div>
+    
+    <div id="status-text" class="status">음악을 넣고 자동 생성을 원하면 자동으로 곡 분석하기! 내가 만들고 싶으면 수동 녹음!</div>
+
+    <div class="container">
+        <div id="game-board">
+            <div id="lanes-container"></div>
+            <div class="hit-line"></div>
+            <div id="clear-message" class="result-message">🎉 클리어! 🎉</div>
+            <div id="gameover-message" class="result-message">💀 게임 오버 💀</div>
+        </div>
+
+        <div class="control-panel">
+            
+            <div class="settings-box">
+                <h4>⚙️ 게임 상세 설정</h4>
+                <div class="flex-row">
+                    <select id="lane-count-select" onchange="updateLaneInputsUI()" style="width: 35%;">
+                        <option value="1">1줄</option>
+                        <option value="2">2줄</option>
+                        <option value="3">3줄</option>
+                        <option value="4" selected>4줄</option>
+                    </select>
+                    <select id="speed-select" style="width: 35%;">
+                        <option value="2200">느림 🐢</option>
+                        <option value="1500" selected>보통 🏃</option>
+                        <option value="1000">빠름 🐇</option>
+                        <option value="700">매우 빠름 ⚡</option>
+                    </select>
+                    <div style="width: 25%; text-align: center;">
+                        <span style="font-size: 11px; color:#aaa;">AI 싱크(ms)</span>
+                        <input type="number" id="sync-input" value="-80" style="padding: 5px; text-align: center; margin-bottom: 0;">
+                    </div>
+                </div>
+                
+                <div id="key-inputs-container" style="text-align: center;">
+                    <input type="text" class="key-input" id="key-0" value="d" maxlength="1">
+                    <input type="text" class="key-input" id="key-1" value="f" maxlength="1">
+                    <input type="text" class="key-input" id="key-2" value="j" maxlength="1">
+                    <input type="text" class="key-input" id="key-3" value="k" maxlength="1">
+                </div>
+                <button class="btn-apply" onclick="applySettings(true)">✔️ 이 설정으로 변경하기</button>
+            </div>
+
+            <h3>🛠️ 1. 게임 만들기</h3>
+            <input type="file" id="audio-upload" accept="audio/*">
+            <audio id="bgm"></audio>
+
+            <button class="btn-auto" onclick="autoGenerateNotes()">🤖 자동으로 곡 분석해서 만들기</button>
+            <button id="btn-record" class="btn-record" onclick="startRecording()">🔴 수동 녹음 (키보드 또는 터치)</button>
+            <button class="btn-stop" onclick="stopAudio()">⏹️ 음악 정지</button>
+            <button class="btn-save" onclick="exportGameFile()" style="margin-top:10px;">💾 방금 만든 게임 저장/공유</button>
+
+            <h3 class="player-mode">🎮 2. 게임 시작하기 </h3>
+            <div class="file-upload-wrapper">
+                <div class="btn-upload-custom">📁 친구 파일(.txt) 열기</div>
+                <input type="file" id="game-file-upload" accept=".txt">
+            </div>
+
+            <button id="btn-play" class="btn-play" onclick="startGame()">▶️ 게임 시작 (플레이)</button>
+        </div>
+    </div>
+
+    <script>
+        let currentLaneCount = 4;
+        let currentKeys = ['d', 'f', 'j', 'k'];
+        let fallDuration = 1500; 
+
+        const audioInput = document.getElementById('audio-upload');
+        const gameFileInput = document.getElementById('game-file-upload');
+        const bgm = document.getElementById('bgm');
+        const statusText = document.getElementById('status-text');
+        const clearMsg = document.getElementById('clear-message');
+        const gameoverMsg = document.getElementById('gameover-message');
+        const gameBoard = document.getElementById('game-board');
+        const lanesContainer = document.getElementById('lanes-container');
+        const hpBar = document.getElementById('hp-bar');
+        
+        let notesData = [];      
+        let activeNotes = [];    
+        let gameMode = 'idle'; 
+        let gameStartTime = 0; 
+        let gameEndTime = 0; 
+        let score = 0;
+        let audioDataUrl = ""; 
+        const hitLineY = 520;      
+
+        const maxHp = 100; let currentHp = maxHp;
+        const damageAmount = 15; const healAmount = 3; 
+
+        function removeFocus() {
+            if(document.activeElement) document.activeElement.blur(); 
+        }
+
+        // 🌟 [최적화] 타이머를 성능 좋은 performance.now()로 통합 변경 🌟
+        function handleInput(pressedLane) {
+            if(gameStartTime === 0 || gameMode === 'idle') return;
+
+            let laneEl = document.getElementById('lane-' + pressedLane);
+            laneEl.style.backgroundColor = "rgba(255,255,255,0.3)";
+            setTimeout(() => laneEl.style.backgroundColor = "transparent", 100);
+
+            let currentTime = performance.now() - gameStartTime;
+
+            if (gameMode === 'recording') {
+                notesData.push({ time: currentTime, lane: pressedLane });
+                spawnNoteElement(pressedLane, currentTime, true);
+                score++; document.getElementById('score').innerText = score;
+            } 
+            else if (gameMode === 'playing') {
+                let hitMargin = 150; 
+                let hitSuccess = false; 
+
+                for(let i=0; i<activeNotes.length; i++) {
+                    let note = activeNotes[i];
+                    if(note.lane === pressedLane) {
+                        if(Math.abs(currentTime - note.targetTime) < hitMargin) {
+                            score += 10; document.getElementById("score").innerText = score;
+                            note.element.remove(); activeNotes.splice(i, 1);
+                            
+                            document.querySelector('.hit-line').style.backgroundColor = "rgba(0, 255, 0, 0.5)";
+                            setTimeout(() => document.querySelector('.hit-line').style.backgroundColor = "rgba(255, 255, 0, 0.2)", 100);
+                            
+                            hitSuccess = true; healHp(); break;
+                        }
+                    }
+                }
+                if (!hitSuccess) triggerMiss(); 
+            }
+        }
+
+        async function autoGenerateNotes() {
+            removeFocus();
+            if (!audioDataUrl) return alert("먼저 음악 파일(MP3)을 넣어주세요!");
+            
+            resetGame();
+            statusText.innerText = "⏳ AI 분석 중입니다... (1~3초 소요)";
+            
+            try {
+                let response = await fetch(audioDataUrl);
+                let arrayBuffer = await response.arrayBuffer();
+                let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                let audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                
+                let offlineCtx = new OfflineAudioContext(1, audioBuffer.length, audioBuffer.sampleRate);
+                let source = offlineCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                
+                let filter = offlineCtx.createBiquadFilter();
+                filter.type = "lowpass";
+                filter.frequency.value = 150; 
+                
+                source.connect(filter);
+                filter.connect(offlineCtx.destination);
+                source.start(0);
+                
+                let renderedBuffer = await offlineCtx.startRendering();
+                let data = renderedBuffer.getChannelData(0);
+                
+                let sampleRate = renderedBuffer.sampleRate;
+                let peaks = [];
+                let maxVal = 0;
+                for(let i=0; i<data.length; i+=100) {
+                    if(Math.abs(data[i]) > maxVal) maxVal = Math.abs(data[i]);
+                }
+                
+                let dynamicThreshold = maxVal * 0.6; 
+                let minDistance = sampleRate * 0.25; 
+                let lastPeak = -minDistance;
+                
+                for(let i=0; i<data.length; i++) {
+                    if(Math.abs(data[i]) > dynamicThreshold) {
+                        if(i - lastPeak > minDistance) { peaks.push(i); lastPeak = i; }
+                    }
+                }
+                
+                let syncOffset = parseInt(document.getElementById('sync-input').value) || -80;
+
+                notesData = peaks.map(peak => {
+                    let calcTime = ((peak / sampleRate) * 1000) + syncOffset;
+                    if(calcTime < 0) calcTime = 0; 
+                    return { time: calcTime, lane: Math.floor(Math.random() * currentLaneCount), spawned: false };
+                });
+                
+                if(notesData.length > 0) {
+                    let maxTime = Math.max(...notesData.map(n => n.time));
+                    gameEndTime = maxTime + 2000; 
+                    alert(`🎵 인공지능 분석 완료!\n총 ${notesData.length}개의 노트가 생성되었습니다.\n[▶️ 게임 시작]을 눌러 바로 플레이해보세요!`);
+                    statusText.innerText = `✨ 자동 채보 완료 (${notesData.length}개)!`;
+                } else {
+                    alert("비트가 약한 곡이라 노트를 생성하지 못했습니다. 수동 녹음을 이용해주세요.");
+                    statusText.innerText = "수동으로 노트를 녹음해주세요.";
+                }
+            } catch (error) {
+                alert("분석 중 오류가 발생했습니다.");
+                statusText.innerText = "오류 발생! 수동 녹음을 이용해주세요.";
+            }
+        }
+
+        function updateLaneInputsUI() {
+            let count = parseInt(document.getElementById('lane-count-select').value);
+            for(let i=0; i<4; i++) {
+                document.getElementById('key-'+i).style.display = (i < count) ? 'inline-block' : 'none';
+            }
+        }
+
+        function applySettings(showAlert = false) {
+            removeFocus();
+            let count = parseInt(document.getElementById('lane-count-select').value);
+            let speedVal = parseInt(document.getElementById('speed-select').value);
+            let newKeys = [];
+            
+            for(let i=0; i<count; i++) {
+                let k = document.getElementById('key-'+i).value.trim().toLowerCase();
+                if(k === "") k = String.fromCharCode(97 + i); 
+                newKeys.push(k);
+            }
+
+            let uniqueKeys = [...new Set(newKeys)];
+            if(uniqueKeys.length !== newKeys.length) {
+                if(showAlert) alert("중복된 글자가 있습니다! 서로 다른 영문자를 입력해주세요.");
+                return;
+            }
+
+            currentLaneCount = count;
+            currentKeys = newKeys;
+            fallDuration = speedVal; 
+
+            gameBoard.style.width = (count * 100) + "px";
+            lanesContainer.innerHTML = '';
+            
+            for(let i=0; i<count; i++) {
+                let lane = document.createElement('div');
+                lane.className = 'lane';
+                lane.id = 'lane-' + i;
+                lane.style.left = (i * 100) + "px";
+                if(i === count - 1) lane.style.borderRight = "none";
+
+                let touchPad = document.createElement('div');
+                touchPad.className = 'touch-pad';
+                lane.appendChild(touchPad);
+
+                let keyHint = document.createElement('div');
+                keyHint.className = 'key-hint';
+                keyHint.innerText = currentKeys[i].toUpperCase();
+                if(currentKeys[i] === " ") keyHint.innerText = "SPACE"; 
+                lane.appendChild(keyHint);
+                
+                const triggerTouch = (e) => {
+                    e.preventDefault(); 
+                    handleInput(i);
+                };
+                lane.addEventListener('touchstart', triggerTouch, {passive: false});
+                lane.addEventListener('mousedown', triggerTouch);
+
+                lanesContainer.appendChild(lane);
+            }
+
+            resetGame();
+            if(showAlert) {
+                if(gameMode === 'recording') notesData = []; 
+                alert("설정이 적용되었습니다!");
+            }
+        }
+
+        window.onload = () => { applySettings(false); };
+
+        audioInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    audioDataUrl = event.target.result; 
+                    bgm.src = audioDataUrl;
+                    statusText.innerText = "음악 준비 완료! [자동 생성] 또는 [노트 찍기]를 선택하세요.";
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function exportGameFile() {
+            removeFocus();
+            if (!audioDataUrl || notesData.length === 0) return alert("저장할 게임(노트)이 없습니다!");
+            const gameBundle = { audio: audioDataUrl, notes: notesData, laneCount: currentLaneCount, keys: currentKeys, speed: fallDuration };
+            const blob = new Blob([JSON.stringify(gameBundle)], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = '나만의음악게임.txt'; a.click();
+            URL.revokeObjectURL(url);
+            alert("저장 성공! 다운로드 폴더의 '나만의음악게임.txt'를 친구에게 보내주세요!");
+        }
+
+        gameFileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const savedData = JSON.parse(event.target.result);
+                        if(savedData.audio && savedData.notes) {
+                            audioDataUrl = savedData.audio;
+                            notesData = savedData.notes;
+                            bgm.src = audioDataUrl; 
+                            
+                            if(savedData.laneCount && savedData.keys) {
+                                document.getElementById('lane-count-select').value = savedData.laneCount;
+                                updateLaneInputsUI();
+                                for(let i=0; i<savedData.laneCount; i++) {
+                                    document.getElementById('key-'+i).value = savedData.keys[i].toUpperCase();
+                                }
+                                if(savedData.speed) { document.getElementById('speed-select').value = savedData.speed; } 
+                                applySettings(false); 
+                            }
+                            statusText.innerText = "✨ 친구 게임 로딩 성공! [▶️ 게임 시작]을 누르세요.";
+                        }
+                    } catch(err) { alert("파일을 읽는 중 오류가 발생했습니다."); }
+                };
+                reader.readAsText(file); 
+            }
+        });
+
+        function updateHpUI() {
+            let hpPercent = (currentHp / maxHp) * 100;
+            hpBar.style.width = hpPercent + '%';
+            if (hpPercent > 60) { hpBar.style.backgroundColor = '#00ffcc'; hpBar.style.boxShadow = '0 0 10px #00ffcc'; } 
+            else if (hpPercent > 30) { hpBar.style.backgroundColor = '#ffeb3b'; hpBar.style.boxShadow = '0 0 10px #ffeb3b'; } 
+            else { hpBar.style.backgroundColor = '#ff4444'; hpBar.style.boxShadow = '0 0 10px #ff4444'; }
+        }
+
+        function triggerMiss() {
+            if (gameMode !== 'playing') return;
+            gameBoard.classList.add('miss-flash');
+            setTimeout(() => gameBoard.classList.remove('miss-flash'), 150);
+            
+            currentHp -= damageAmount;
+            if (currentHp <= 0) { currentHp = 0; updateHpUI(); triggerGameOver(); } 
+            else { updateHpUI(); }
+        }
+
+        function healHp() {
+            if (gameMode !== 'playing') return;
+            currentHp += healAmount;
+            if (currentHp > maxHp) currentHp = maxHp;
+            updateHpUI();
+        }
+
+        function triggerGameOver() {
+           
+        }
+
+        bgm.onplay = function() {
+            if (gameMode !== 'idle') { gameStartTime = performance.now(); requestAnimationFrame(gameLoop); }
+        };
+
+        bgm.onended = function() {
+            if(gameMode === 'playing') finishGame(); else stopAudio();
+        };
+
+        function startRecording() {
+            removeFocus();
+            if (!bgm.src) return alert("먼저 음악 파일을 선택해주세요!");
+            clearMsg.style.display = 'none'; gameoverMsg.style.display = 'none';
+            score = 0; document.getElementById('score').innerText = score;
+            resetGame(); notesData = []; gameMode = 'recording';
+            statusText.innerText = "🔴 녹음 중! 리듬에 맞춰 화면을 터치하세요.";
+            bgm.currentTime = 0; bgm.play();
+        }
+
+        function startGame() {
+            removeFocus();
+            if (!bgm.src || notesData.length === 0) return alert("저장된 노트가 없습니다! 자동 생성이나 녹음을 먼저 해주세요.");
+            clearMsg.style.display = 'none'; gameoverMsg.style.display = 'none';
+            score = 0; document.getElementById('score').innerText = score;
+            resetGame(); notesData.forEach(n => n.spawned = false);
+            
+            let maxTime = Math.max(...notesData.map(n => n.time));
+            gameEndTime = maxTime + 2000; 
+
+            gameMode = 'playing';
+            statusText.innerText = "▶️ 진행 중! 떨어지는 노트를 터치하세요!";
+            bgm.currentTime = 0; bgm.play();
+        }
+
+        function stopAudio() {
+            removeFocus();
+            bgm.pause(); statusText.innerText = "대기 중"; gameMode = 'idle'; resetGame();
+        }
+
+        function finishGame() {
+            bgm.pause(); gameMode = 'idle';
+            statusText.innerText = "🎉 게임 종료! 점수를 확인하세요.";
+            clearMsg.style.display = 'block'; resetGame();
+        }
+
+        function resetGame() {
+            document.querySelectorAll('.note').forEach(n => n.remove());
+            activeNotes = []; gameStartTime = 0;
+            gameBoard.classList.remove('miss-flash');
+            currentHp = maxHp; updateHpUI();
+        }
+
+        // 🌟 [최적화] GPU 가속 방식(transform)과 고정밀 타이머로 완전히 변경된 게임 루프 🌟
+        function gameLoop() {
+            if (gameMode === 'idle') return;
+            let currentTime = performance.now() - gameStartTime;
+
+            if (gameMode === 'playing') {
+                if (currentTime > gameEndTime) { finishGame(); return; }
+
+                notesData.forEach(note => {
+                    if (!note.spawned && currentTime >= note.time - fallDuration) {
+                        spawnNoteElement(note.lane, note.time); note.spawned = true;
+                    }
+                });
+
+                for (let i = activeNotes.length - 1; i >= 0; i--) {
+                    let note = activeNotes[i];
+                    let progress = (currentTime - (note.targetTime - fallDuration)) / fallDuration;
+                    let currentY = progress * hitLineY;
+                    
+                    // 기존의 .top 대신 .transform을 사용하여 웹브라우저의 부하를 획기적으로 줄였습니다.
+                    note.element.style.transform = `translateY(${currentY}px)`;
+
+                    if (currentY > 600) {
+                        note.element.remove(); activeNotes.splice(i, 1);
+                        triggerMiss(); 
+                    }
+                }
+            }
+            if (!bgm.paused) requestAnimationFrame(gameLoop);
+        }
+
+        function spawnNoteElement(lane, targetTime, isRecordMode = false) {
+            if(lane >= currentLaneCount) return; 
+
+            let noteEl = document.createElement("div");
+            noteEl.className = "note" + (isRecordMode ? " recorded" : "");
+            
+            // transform 가속을 위해 기본 top 위치를 0px로 리셋
+            noteEl.style.top = "0px";
+            noteEl.style.left = "5px"; 
+            
+            document.getElementById('lane-' + lane).appendChild(noteEl);
+            
+            if (!isRecordMode) {
+                activeNotes.push({ element: noteEl, lane: lane, targetTime: targetTime });
+            } else {
+                noteEl.style.top = hitLineY + "px";
+                setTimeout(() => noteEl.remove(), 200);
+            }
+        }
+
+        window.addEventListener("keydown", function(e) {
+            if(e.key === " " || e.key === "Spacebar") e.preventDefault(); 
+            if(e.repeat || gameStartTime === 0 || gameMode === 'idle') return;
+
+            let pressedKey = e.key.toLowerCase();
+            let pressedLane = currentKeys.indexOf(pressedKey);
+            
+            if(pressedLane !== -1) { 
+                handleInput(pressedLane); 
+            }
+        });
+    </script>
+</body>
+</html>
