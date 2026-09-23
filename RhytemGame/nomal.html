@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🎵 음악 리듬게임 🎵</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            text-align: center;
+            background: #0d0d1a;
+            color: white;
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            margin: 0;
+            padding: 20px;
+            touch-action: manipulation;
+            min-height: 100vh;
+        }
+
+        h1 {
+            font-size: 28px;
+            letter-spacing: 4px;
+            color: #fff;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px #00ffcc, 0 0 40px #00ffcc44;
+        }
+
+        /* ── 상단 상태 바 ── */
+        .status-header {
+            width: 100%;
+            max-width: 620px;
+            margin: 0 auto 12px;
+        }
+
+        .top-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 0 4px;
+        }
+
+        #score-display { font-size: 22px; font-weight: bold; color: #ffeb3b; }
+        #combo-display { font-size: 20px; font-weight: bold; color: #00ffcc; letter-spacing: 2px; }
+        #best-display  { font-size: 14px; color: #888; }
+
+        #hp-container {
+            width: 100%;
+            height: 12px;
+            background: #1a1a2e;
+            border-radius: 6px;
+            border: 1px solid #333;
+            overflow: hidden;
+        }
+        #hp-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00ffcc, #00e5ff);
+            transition: width 0.2s ease, background 0.3s;
+            box-shadow: 0 0 8px #00ffcc88;
+            border-radius: 6px;
+        }
+
+        #status-text {
+            font-size: 14px;
+            color: #aaa;
+            margin-bottom: 10px;
+            min-height: 20px;
+        }
+
+        /* ── 레이아웃 ── */
+        .container {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        /* ── 게임 보드 ── */
+        #game-board-wrap { position: relative; }
+
+        #game-board {
+            width: 400px;
+            height: 600px;
+            background: #0a0a18;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #222;
+            border-radius: 12px;
+            transition: width 0.3s ease;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* 배경 그리드 선 */
+        #game-board::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: repeating-linear-gradient(0deg, transparent, transparent 59px, #ffffff08 59px, #ffffff08 60px);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        #game-board.miss-flash { background-color: rgba(255, 0, 0, 0.25) !important; }
+
+        /* ── 레인 ── */
+        .lane {
+            width: 100px;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            border-right: 1px solid #1a1a2e;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            z-index: 1;
+        }
+        .lane:last-child { border-right: none; }
+
+        .lane-bg {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transition: opacity 0.08s;
+            pointer-events: none;
+        }
+        .lane.pressed .lane-bg { opacity: 1; }
+
+        /* ── 히트라인 ── */
+        #hit-line {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.08);
+            position: absolute;
+            top: 510px;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* 각 레인 히트라인 조각 */
+        .hit-line-piece {
+            position: absolute;
+            bottom: 0;
+            height: 8px;
+            border-radius: 4px;
+            transition: opacity 0.12s, transform 0.12s;
+        }
+
+        /* ── 노트 ── */
+        .note {
+            position: absolute;
+            left: 5px;
+            top: -30px;
+            width: 90px;
+            height: 26px;
+            border-radius: 13px;
+            pointer-events: none;
+            will-change: transform;
+            z-index: 3;
+        }
+        .note-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 13px;
+            position: relative;
+            overflow: hidden;
+        }
+        .note-shine {
+            position: absolute;
+            top: 2px; left: 10px;
+            width: 40px; height: 6px;
+            background: rgba(255,255,255,0.4);
+            border-radius: 3px;
+        }
+
+        .note.recorded .note-inner { background: #ff4444; box-shadow: 0 0 12px #ff4444; }
+
+        /* ── 키 힌트 ── */
+        .key-hint {
+            position: absolute;
+            bottom: 14px;
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+            font-size: 20px;
+            color: rgba(255,255,255,0.25);
+            pointer-events: none;
+            letter-spacing: 1px;
+            z-index: 4;
+        }
+
+        /* ── 터치 패드 ── */
+        .touch-pad {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100px;
+            pointer-events: none;
+        }
+
+        /* ── 판정 텍스트 ── */
+        #judge-text {
+            position: absolute;
+            top: 350px;
+            width: 100%;
+            text-align: center;
+            font-size: 32px;
+            font-weight: 900;
+            pointer-events: none;
+            z-index: 20;
+            opacity: 0;
+            letter-spacing: 3px;
+            transition: none;
+        }
+
+        /* ── 콤보 ── */
+        #combo-text {
+            position: absolute;
+            top: 395px;
+            width: 100%;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: rgba(255,255,255,0.6);
+            pointer-events: none;
+            z-index: 20;
+            opacity: 0;
+            letter-spacing: 2px;
+        }
+
+        /* ── 파티클 ── */
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* ── 결과 메시지 ── */
+        .result-message {
+            display: none;
+            position: absolute;
+            top: 200px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 300px;
+            background: rgba(5, 5, 20, 0.95);
+            font-size: 24px;
+            font-weight: bold;
+            padding: 24px 0 18px;
+            border-radius: 16px;
+            z-index: 30;
+            text-align: center;
+        }
+        #clear-message   { color: #ffeb3b; border: 2px solid #ffeb3b; box-shadow: 0 0 30px #ffeb3b44; }
+        #gameover-message{ color: #ff4444; border: 2px solid #ff4444; box-shadow: 0 0 30px #ff444444; }
+        .result-sub { font-size: 14px; color: #aaa; margin-top: 8px; font-weight: normal; }
+
+        /* ── 컨트롤 패널 ── */
+        .control-panel {
+            width: 360px;
+            background: #111120;
+            padding: 18px;
+            border-radius: 12px;
+            text-align: left;
+            border: 1px solid #222;
+        }
+        .control-panel h3 {
+            margin-top: 0;
+            color: #ffeb3b;
+            border-bottom: 1px solid #333;
+            padding-bottom: 6px;
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+        .control-panel h3.player-mode { color: #00ffcc; margin-top: 20px; }
+
+        button, select, input[type="number"], input[type="text"].key-input {
+            margin-bottom: 8px;
+            padding: 10px;
+            font-size: 13px;
+            width: 100%;
+            cursor: pointer;
+            border-radius: 8px;
+            font-weight: bold;
+            font-family: inherit;
+        }
+
+        button { border: none; transition: filter 0.15s, transform 0.1s; }
+        button:hover { filter: brightness(1.15); }
+        button:active { transform: scale(0.97); }
+
+        select, input[type="number"] {
+            background: #0d0d1a;
+            color: white;
+            border: 1px solid #333;
+        }
+
+        .btn-record { background: linear-gradient(135deg, #e53935, #b71c1c); color: white; }
+        .btn-auto   { background: linear-gradient(135deg, #7b1fa2, #4a148c); color: white; font-size: 14px; padding: 12px; box-shadow: 0 0 16px #9c27b044; }
+        .btn-save   { background: linear-gradient(135deg, #f57c00, #e65100); color: white; }
+        .btn-play   { background: linear-gradient(135deg, #00897b, #004d40); color: white; font-size: 15px; padding: 13px; margin-top: 6px; box-shadow: 0 0 16px #00ffcc33; }
+        .btn-stop   { background: #2a2a3a; color: #aaa; border: 1px solid #333; }
+        .btn-apply  { background: linear-gradient(135deg, #558b2f, #33691e); color: white; padding: 9px; }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-upload-label {
+            display: block;
+            background: #1a1a2e;
+            color: #aaa;
+            border: 1px dashed #444;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 8px;
+            font-size: 13px;
+            transition: border-color 0.2s;
+        }
+        .file-upload-label:hover { border-color: #00ffcc; color: #00ffcc; }
+
+        .btn-upload-custom {
+            display: block;
+            background: linear-gradient(135deg, #1565c0, #0d47a1);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: filter 0.15s;
+        }
+        .btn-upload-custom:hover { filter: brightness(1.15); }
+        .file-upload-wrapper { position: relative; overflow: hidden; display: inline-block; width: 100%; margin-bottom: 0; }
+        .file-upload-wrapper input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; height: 100%; display: block; }
+
+        .settings-box {
+            background: #0d0d1a;
+            padding: 14px;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            border: 1px solid #222;
+        }
+        .settings-box h4 { margin: 0 0 10px 0; color: #ccc; font-size: 13px; }
+
+        .flex-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; }
+
+        .key-input {
+            width: 42px !important;
+            height: 36px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            text-transform: uppercase;
+            background: #0d0d1a;
+            color: #00ffcc;
+            border: 1px solid #333;
+            border-radius: 6px;
+            margin-right: 4px;
+        }
+
+        audio { display: none; }
+
+        /* ── 판정 통계 ── */
+        #judge-stats {
+            position: absolute;
+            bottom: 100px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            pointer-events: none;
+            z-index: 6;
+            padding: 0 8px;
+        }
+        .judge-stat {
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.5);
+        }
+
+        @keyframes judgeAnim {
+            0%   { opacity: 0; transform: translateY(0) scale(0.7); }
+            15%  { opacity: 1; transform: translateY(-10px) scale(1.1); }
+            70%  { opacity: 1; transform: translateY(-14px) scale(1); }
+            100% { opacity: 0; transform: translateY(-20px) scale(0.95); }
+        }
+        @keyframes comboAnim {
+            0%   { opacity: 0; transform: scale(0.8); }
+            20%  { opacity: 1; transform: scale(1.05); }
+            70%  { opacity: 0.9; }
+            100% { opacity: 0; }
+        }
+        @keyframes particleMove {
+            to { transform: translate(var(--tx), var(--ty)); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <h1>🎵 음악 리듬게임 🎵</h1>
+
+    <div class="status-header">
+        <div class="top-stats">
+            <div id="score-display">점수: <span id="score">0</span></div>
+            <div id="combo-display">COMBO <span id="combo">0</span></div>
+            <div id="best-display">최고: <span id="best-score">0</span></div>
+        </div>
+        <div id="hp-container"><div id="hp-bar"></div></div>
+    </div>
+
+    <div id="status-text">음악을 넣고 자동 생성을 원하면 자동으로 곡 분석하기! 내가 만들고 싶으면 수동 녹음!</div>
+
+    <div class="container">
+        <div id="game-board-wrap">
+            <div id="game-board">
+                <div id="lanes-container"></div>
+                <div id="hit-line"></div>
+                <div id="judge-text"></div>
+                <div id="combo-text">COMBO</div>
+                <div id="judge-stats">
+                    <span class="judge-stat" style="color:#ffe135;">PERFECT: <span id="cnt-perfect">0</span></span>
+                    <span class="judge-stat" style="color:#00e5ff;">GOOD: <span id="cnt-good">0</span></span>
+                    <span class="judge-stat" style="color:#ff6b6b;">MISS: <span id="cnt-miss">0</span></span>
+                </div>
+                <div id="clear-message" class="result-message">
+                    🎉 클리어! 🎉
+                    <div class="result-sub" id="clear-sub"></div>
+                </div>
+                <div id="gameover-message" class="result-message">
+                    💀 게임 오버 💀
+                    <div class="result-sub" id="gameover-sub"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-panel">
+
+            <div class="settings-box">
+                <h4>⚙️ 게임 상세 설정</h4>
+                <div class="flex-row">
+                    <select id="lane-count-select" onchange="updateLaneInputsUI()" style="flex:1;">
+                        <option value="1">1줄</option>
+                        <option value="2">2줄</option>
+                        <option value="3">3줄</option>
+                        <option value="4" selected>4줄</option>
+                    </select>
+                    <select id="speed-select" style="flex:1;">
+                        <option value="2200">느림 🐢</option>
+                        <option value="1500" selected>보통 🏃</option>
+                        <option value="1000">빠름 🐇</option>
+                        <option value="700">매우 빠름 ⚡</option>
+                    </select>
+                    <div style="flex:0.8; text-align:center;">
+                        <div style="font-size:10px;color:#666;margin-bottom:2px;">AI 싱크(ms)</div>
+                        <input type="number" id="sync-input" value="-80" style="padding:6px;text-align:center;margin-bottom:0;width:100%;">
+                    </div>
+                </div>
+                <div id="key-inputs-container" style="text-align:center; margin-bottom:6px;">
+                    <input type="text" class="key-input" id="key-0" value="d" maxlength="1">
+                    <input type="text" class="key-input" id="key-1" value="f" maxlength="1">
+                    <input type="text" class="key-input" id="key-2" value="j" maxlength="1">
+                    <input type="text" class="key-input" id="key-3" value="k" maxlength="1">
+                </div>
+                <button class="btn-apply" onclick="applySettings(true)">✔️ 이 설정으로 변경하기</button>
+            </div>
+
+            <h3>🛠️ 1. 게임 만들기</h3>
+
+            <label class="file-upload-label" for="audio-upload" id="audio-label">🎵 음악 파일 선택 (MP3, OGG 등)</label>
+            <input type="file" id="audio-upload" accept="audio/*">
+            <audio id="bgm"></audio>
+
+            <button class="btn-auto" onclick="autoGenerateNotes()">🤖 자동으로 곡 분석해서 만들기</button>
+            <button id="btn-record" class="btn-record" onclick="startRecording()">🔴 수동 녹음 (키보드 또는 터치)</button>
+            <button class="btn-stop" onclick="stopAudio()">⏹️ 음악 정지</button>
+            <button class="btn-save" onclick="exportGameFile()" style="margin-top:6px;">💾 방금 만든 게임 저장/공유</button>
+
+            <h3 class="player-mode">🎮 2. 게임 시작하기</h3>
+            <div class="file-upload-wrapper">
+                <div class="btn-upload-custom">📁 친구 파일(.txt) 열기</div>
+                <input type="file" id="game-file-upload" accept=".txt">
+            </div>
+
+            <button id="btn-play" class="btn-play" onclick="startGame()">▶️ 게임 시작 (플레이)</button>
+        </div>
+    </div>
+
+    <script>
+    // ── 레인 색상 ──
+    const LANE_COLORS = ['#ffe135', '#00e5ff', '#ff6ec7', '#a78bfa'];
+    const LANE_GLOW   = ['#ffe13588', '#00e5ff88', '#ff6ec788', '#a78bfa88'];
+
+    let currentLaneCount = 4;
+    let currentKeys = ['d', 'f', 'j', 'k'];
+    let fallDuration = 1500;
+
+    const audioInput    = document.getElementById('audio-upload');
+    const gameFileInput = document.getElementById('game-file-upload');
+    const bgm           = document.getElementById('bgm');
+    const statusText    = document.getElementById('status-text');
+    const clearMsg      = document.getElementById('clear-message');
+    const gameoverMsg   = document.getElementById('gameover-message');
+    const gameBoard     = document.getElementById('game-board');
+    const lanesContainer= document.getElementById('lanes-container');
+    const hpBar         = document.getElementById('hp-bar');
+    const judgeText     = document.getElementById('judge-text');
+    const comboText     = document.getElementById('combo-text');
+
+    let notesData   = [];
+    let activeNotes = [];
+    let gameMode    = 'idle';
+    let gameStartTime = 0;
+    let gameEndTime   = 0;
+    let score       = 0;
+    let combo       = 0;
+    let bestScore   = 0;
+    let audioDataUrl = "";
+
+    const hitLineY   = 510;
+    const maxHp      = 100;
+    let currentHp    = maxHp;
+    const damageAmount = 15;
+    const healAmount   = 3;
+
+    // 판정 카운터
+    let cntPerfect = 0, cntGood = 0, cntMiss = 0;
+
+    // 판정 타이밍 (ms)
+    const PERFECT_MARGIN = 70;
+    const GOOD_MARGIN    = 150;
+
+    let judgeAnimTimer = null;
+    let comboAnimTimer = null;
+
+    // ── 유틸 ──
+    function removeFocus() {
+        if (document.activeElement) document.activeElement.blur();
+    }
+
+    function updateLaneInputsUI() {
+        let count = parseInt(document.getElementById('lane-count-select').value);
+        for (let i = 0; i < 4; i++) {
+            document.getElementById('key-' + i).style.display = (i < count) ? 'inline-block' : 'none';
+        }
+    }
+
+    // ── HP UI ──
+    function updateHpUI() {
+        let pct = (currentHp / maxHp) * 100;
+        hpBar.style.width = pct + '%';
+        if (pct > 60)      { hpBar.style.background = 'linear-gradient(90deg,#00ffcc,#00e5ff)'; hpBar.style.boxShadow = '0 0 8px #00ffcc88'; }
+        else if (pct > 30) { hpBar.style.background = 'linear-gradient(90deg,#ffeb3b,#ff9800)'; hpBar.style.boxShadow = '0 0 8px #ffeb3b88'; }
+        else               { hpBar.style.background = 'linear-gradient(90deg,#ff4444,#ff1744)'; hpBar.style.boxShadow = '0 0 8px #ff444488'; }
+    }
+
+    // ── 판정 텍스트 ──
+    function showJudge(type) {
+        if (judgeAnimTimer) { clearTimeout(judgeAnimTimer); judgeText.style.animation = 'none'; void judgeText.offsetWidth; }
+        judgeText.style.animation = 'none';
+        void judgeText.offsetWidth;
+
+        if (type === 'PERFECT') {
+            judgeText.textContent = '✦ PERFECT ✦';
+            judgeText.style.color = '#ffe135';
+            judgeText.style.textShadow = '0 0 20px #ffe135, 0 0 40px #ffe13566';
+        } else if (type === 'GOOD') {
+            judgeText.textContent = '◆ GOOD ◆';
+            judgeText.style.color = '#00e5ff';
+            judgeText.style.textShadow = '0 0 20px #00e5ff, 0 0 40px #00e5ff66';
+        } else {
+            judgeText.textContent = '✕ MISS';
+            judgeText.style.color = '#ff4444';
+            judgeText.style.textShadow = '0 0 20px #ff4444';
+        }
+        judgeText.style.animation = 'judgeAnim 0.7s ease forwards';
+        judgeAnimTimer = setTimeout(() => { judgeText.style.animation = 'none'; judgeText.style.opacity = 0; }, 700);
+    }
+
+    // ── 콤보 표시 ──
+    function showCombo(c) {
+        if (c < 2) { comboText.style.opacity = 0; return; }
+        if (comboAnimTimer) clearTimeout(comboAnimTimer);
+        comboText.style.animation = 'none';
+        void comboText.offsetWidth;
+        comboText.textContent = c + ' COMBO';
+        const hue = Math.min(c * 3, 120);
+        comboText.style.color = `hsl(${hue}, 100%, 70%)`;
+        comboText.style.animation = 'comboAnim 0.6s ease forwards';
+        comboAnimTimer = setTimeout(() => { comboText.style.opacity = 0; }, 600);
+    }
+
+    // ── 파티클 이펙트 ──
+    function spawnParticles(lane, type) {
+        const laneEl = document.getElementById('lane-' + lane);
+        if (!laneEl) return;
+        const rect  = laneEl.getBoundingClientRect();
+        const bRect = gameBoard.getBoundingClientRect();
+        const cx = rect.left - bRect.left + rect.width / 2;
+        const cy = hitLineY + 4;
+
+        const count = type === 'PERFECT' ? 10 : 6;
+        const color = type === 'PERFECT' ? LANE_COLORS[lane] : '#00e5ff';
+
+        for (let i = 0; i < count; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            const size = 4 + Math.random() * 5;
+            const angle = (Math.PI * 2 * i / count) + Math.random() * 0.5;
+            const dist  = 30 + Math.random() * 40;
+            const tx = Math.cos(angle) * dist;
+            const ty = Math.sin(angle) * dist - 20;
+            p.style.cssText = `
+                width:${size}px; height:${size}px;
+                background:${color};
+                box-shadow: 0 0 6px ${color};
+                left:${cx - size/2}px;
+                top:${cy - size/2}px;
+                --tx:${tx}px; --ty:${ty}px;
+                animation: particleMove 0.5s ease forwards;
+            `;
+            gameBoard.appendChild(p);
+            setTimeout(() => p.remove(), 520);
+        }
+    }
+
+    // ── 히트라인 플래시 ──
+    function flashHitLine(lane, color) {
+        const piece = document.getElementById('hit-piece-' + lane);
+        if (!piece) return;
+        piece.style.background = color;
+        piece.style.boxShadow  = `0 0 12px ${color}`;
+        piece.style.opacity    = '1';
+        piece.style.transform  = 'scaleY(1.8)';
+        setTimeout(() => {
+            piece.style.opacity   = '0.3';
+            piece.style.transform = 'scaleY(1)';
+        }, 120);
+    }
+
+    // ── 레인 플래시 ──
+    function flashLane(lane) {
+        const laneEl = document.getElementById('lane-' + lane);
+        if (!laneEl) return;
+        const bg = laneEl.querySelector('.lane-bg');
+        if (!bg) return;
+        laneEl.classList.add('pressed');
+        setTimeout(() => laneEl.classList.remove('pressed'), 120);
+    }
+
+    // ── MISS 처리 ──
+    function triggerMiss() {
+        if (gameMode !== 'playing') return;
+        cntMiss++;
+        document.getElementById('cnt-miss').textContent = cntMiss;
+        combo = 0;
+        document.getElementById('combo').textContent = combo;
+        showJudge('MISS');
+        showCombo(combo);
+        gameBoard.classList.add('miss-flash');
+        setTimeout(() => gameBoard.classList.remove('miss-flash'), 150);
+        currentHp -= damageAmount;
+        if (currentHp <= 0) { currentHp = 0; updateHpUI(); triggerGameOver(); }
+        else updateHpUI();
+    }
+
+    function healHp() {
+        if (gameMode !== 'playing') return;
+        currentHp = Math.min(currentHp + healAmount, maxHp);
+        updateHpUI();
+    }
+
+    function triggerGameOver() {
+        bgm.pause(); gameMode = 'idle';
+        statusText.innerText = "💀 게임 오버! 실력을 더 키워보세요.";
+        document.getElementById('gameover-sub').textContent = `점수: ${score}  |  퍼펙트: ${cntPerfect}  |  굿: ${cntGood}  |  미스: ${cntMiss}`;
+        gameoverMsg.style.display = 'block';
+        resetGame();
+    }
+
+    // ── 입력 처리 ──
+    function handleInput(pressedLane) {
+        if (gameStartTime === 0 || gameMode === 'idle') return;
+
+        flashLane(pressedLane);
+
+        const currentTime = performance.now() - gameStartTime;
+
+        if (gameMode === 'recording') {
+            notesData.push({ time: currentTime, lane: pressedLane });
+            spawnNoteElement(pressedLane, currentTime, true);
+            score++;
+            document.getElementById('score').innerText = score;
+        } else if (gameMode === 'playing') {
+            let hitSuccess = false;
+            let bestDiff   = Infinity;
+            let bestIdx    = -1;
+
+            for (let i = 0; i < activeNotes.length; i++) {
+                const note = activeNotes[i];
+                if (note.lane === pressedLane) {
+                    const diff = Math.abs(currentTime - note.targetTime);
+                    if (diff < GOOD_MARGIN && diff < bestDiff) {
+                        bestDiff = diff;
+                        bestIdx  = i;
+                    }
+                }
+            }
+
+            if (bestIdx !== -1) {
+                const note = activeNotes[bestIdx];
+                note.element.remove();
+                activeNotes.splice(bestIdx, 1);
+
+                hitSuccess = true;
+                combo++;
+                document.getElementById('combo').textContent = combo;
+                showCombo(combo);
+                healHp();
+
+                let pts, judgeType;
+                if (bestDiff < PERFECT_MARGIN) {
+                    pts = 10 + Math.floor(combo / 10);
+                    judgeType = 'PERFECT';
+                    cntPerfect++;
+                    document.getElementById('cnt-perfect').textContent = cntPerfect;
+                    flashHitLine(pressedLane, LANE_COLORS[pressedLane]);
+                } else {
+                    pts = 5 + Math.floor(combo / 20);
+                    judgeType = 'GOOD';
+                    cntGood++;
+                    document.getElementById('cnt-good').textContent = cntGood;
+                    flashHitLine(pressedLane, '#00e5ff');
+                }
+
+                score += pts;
+                document.getElementById('score').innerText = score;
+                showJudge(judgeType);
+                spawnParticles(pressedLane, judgeType);
+            }
+
+            if (!hitSuccess) triggerMiss();
+        }
+    }
+
+    // ── 노트 스폰 ──
+    function spawnNoteElement(lane, targetTime, isRecordMode = false) {
+        if (lane >= currentLaneCount) return;
+
+        const noteEl = document.createElement('div');
+        noteEl.className = 'note' + (isRecordMode ? ' recorded' : '');
+        noteEl.style.top  = '0px';
+        noteEl.style.left = '5px';
+
+        const inner = document.createElement('div');
+        inner.className = 'note-inner';
+
+        if (!isRecordMode) {
+            const color = LANE_COLORS[lane];
+            const glow  = LANE_GLOW[lane];
+            inner.style.background = `linear-gradient(135deg, ${color}cc, ${color})`;
+            inner.style.boxShadow  = `0 0 14px ${glow}, inset 0 1px 0 rgba(255,255,255,0.3)`;
+
+            const shine = document.createElement('div');
+            shine.className = 'note-shine';
+            inner.appendChild(shine);
+        }
+
+        noteEl.appendChild(inner);
+        document.getElementById('lane-' + lane).appendChild(noteEl);
+
+        if (!isRecordMode) {
+            activeNotes.push({ element: noteEl, lane: lane, targetTime: targetTime });
+        } else {
+            noteEl.style.top = hitLineY + 'px';
+            setTimeout(() => noteEl.remove(), 200);
+        }
+    }
+
+    // ── 게임 루프 ──
+    function gameLoop() {
+        if (gameMode === 'idle') return;
+        const currentTime = performance.now() - gameStartTime;
+
+        if (gameMode === 'playing') {
+            if (currentTime > gameEndTime) { finishGame(); return; }
+
+            notesData.forEach(note => {
+                if (!note.spawned && currentTime >= note.time - fallDuration) {
+                    spawnNoteElement(note.lane, note.time);
+                    note.spawned = true;
+                }
+            });
+
+            for (let i = activeNotes.length - 1; i >= 0; i--) {
+                const note     = activeNotes[i];
+                const progress = (currentTime - (note.targetTime - fallDuration)) / fallDuration;
+                const currentY = progress * hitLineY;
+                note.element.style.transform = `translateY(${currentY}px)`;
+
+                if (currentY > 620) {
+                    note.element.remove();
+                    activeNotes.splice(i, 1);
+                    triggerMiss();
+                }
+            }
+        }
+        if (!bgm.paused) requestAnimationFrame(gameLoop);
+    }
+
+    bgm.onplay = function () {
+        if (gameMode !== 'idle') {
+            gameStartTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+    };
+    bgm.onended = function () {
+        if (gameMode === 'playing') finishGame();
+        else stopAudio();
+    };
+
+    // ── 게임 제어 ──
+    function startRecording() {
+        removeFocus();
+        if (!bgm.src) return alert("먼저 음악 파일을 선택해주세요!");
+        clearMsg.style.display = 'none'; gameoverMsg.style.display = 'none';
+        score = 0; combo = 0;
+        document.getElementById('score').innerText = score;
+        document.getElementById('combo').innerText = combo;
+        resetGame(); notesData = []; gameMode = 'recording';
+        statusText.innerText = "🔴 녹음 중! 리듬에 맞춰 키를 누르거나 화면을 터치하세요.";
+        bgm.currentTime = 0; bgm.play();
+    }
+
+    function startGame() {
+        removeFocus();
+        if (!bgm.src || notesData.length === 0) return alert("저장된 노트가 없습니다! 자동 생성이나 녹음을 먼저 해주세요.");
+        clearMsg.style.display = 'none'; gameoverMsg.style.display = 'none';
+        score = 0; combo = 0; cntPerfect = 0; cntGood = 0; cntMiss = 0;
+        document.getElementById('score').innerText   = score;
+        document.getElementById('combo').innerText   = combo;
+        document.getElementById('cnt-perfect').textContent = cntPerfect;
+        document.getElementById('cnt-good').textContent    = cntGood;
+        document.getElementById('cnt-miss').textContent    = cntMiss;
+        resetGame();
+        notesData.forEach(n => n.spawned = false);
+        gameEndTime = Math.max(...notesData.map(n => n.time)) + 2000;
+        gameMode = 'playing';
+        statusText.innerText = "▶️ 진행 중! 노트를 타이밍에 맞게 누르세요!";
+        bgm.currentTime = 0; bgm.play();
+    }
+
+    function stopAudio() {
+        removeFocus();
+        bgm.pause();
+        statusText.innerText = "대기 중";
+        gameMode = 'idle';
+        resetGame();
+    }
+
+    function finishGame() {
+        bgm.pause(); gameMode = 'idle';
+        if (score > bestScore) {
+            bestScore = score;
+            document.getElementById('best-score').textContent = bestScore;
+        }
+        statusText.innerText = "🎉 게임 종료! 점수를 확인하세요.";
+        const accuracy = (cntPerfect + cntGood) > 0
+            ? Math.round(cntPerfect / (cntPerfect + cntGood + cntMiss) * 100) : 0;
+        document.getElementById('clear-sub').textContent =
+            `점수: ${score}  |  정확도: ${accuracy}%  |  퍼펙트: ${cntPerfect}`;
+        clearMsg.style.display = 'block';
+        resetGame();
+    }
+
+    function resetGame() {
+        document.querySelectorAll('.note').forEach(n => n.remove());
+        document.querySelectorAll('.particle').forEach(p => p.remove());
+        activeNotes = []; gameStartTime = 0;
+        gameBoard.classList.remove('miss-flash');
+        currentHp = maxHp; updateHpUI();
+    }
+
+    // ── 설정 적용 ──
+    function applySettings(showAlert = false) {
+        removeFocus();
+        const count    = parseInt(document.getElementById('lane-count-select').value);
+        const speedVal = parseInt(document.getElementById('speed-select').value);
+        const newKeys  = [];
+
+        for (let i = 0; i < count; i++) {
+            let k = document.getElementById('key-' + i).value.trim().toLowerCase();
+            if (k === '') k = String.fromCharCode(97 + i);
+            newKeys.push(k);
+        }
+
+        const uniqueKeys = [...new Set(newKeys)];
+        if (uniqueKeys.length !== newKeys.length) {
+            if (showAlert) alert("중복된 글자가 있습니다! 서로 다른 영문자를 입력해주세요.");
+            return;
+        }
+
+        currentLaneCount = count;
+        currentKeys      = newKeys;
+        fallDuration     = speedVal;
+
+        const laneW = 100;
+        gameBoard.style.width = (count * laneW) + 'px';
+
+        lanesContainer.innerHTML = '';
+        const hitLineEl = document.getElementById('hit-line');
+        hitLineEl.innerHTML = '';
+
+        for (let i = 0; i < count; i++) {
+            // 레인
+            const lane = document.createElement('div');
+            lane.className = 'lane';
+            lane.id = 'lane-' + i;
+            lane.style.left = (i * laneW) + 'px';
+            lane.style.width = laneW + 'px';
+
+            // 레인 배경 (터치 시 깜빡임)
+            const laneBg = document.createElement('div');
+            laneBg.className = 'lane-bg';
+            laneBg.style.background = `linear-gradient(to top, ${LANE_COLORS[i]}22, transparent)`;
+            lane.appendChild(laneBg);
+
+            // 터치 패드
+            const touchPad = document.createElement('div');
+            touchPad.className = 'touch-pad';
+            touchPad.style.background = `linear-gradient(to top, ${LANE_COLORS[i]}18, transparent)`;
+            lane.appendChild(touchPad);
+
+            // 키 힌트
+            const keyHint = document.createElement('div');
+            keyHint.className = 'key-hint';
+            keyHint.style.color = LANE_COLORS[i] + '44';
+            keyHint.innerText = currentKeys[i] === ' ' ? 'SPC' : currentKeys[i].toUpperCase();
+            lane.appendChild(keyHint);
+
+            // 이벤트
+            const triggerTouch = (e) => { e.preventDefault(); handleInput(i); };
+            lane.addEventListener('touchstart', triggerTouch, { passive: false });
+            lane.addEventListener('mousedown', triggerTouch);
+
+            lanesContainer.appendChild(lane);
+
+            // 히트라인 조각
+            const piece = document.createElement('div');
+            piece.className = 'hit-line-piece';
+            piece.id = 'hit-piece-' + i;
+            piece.style.left   = (i * laneW + 5) + 'px';
+            piece.style.width  = (laneW - 10) + 'px';
+            piece.style.background = LANE_COLORS[i];
+            piece.style.boxShadow  = `0 0 10px ${LANE_COLORS[i]}`;
+            piece.style.opacity    = '0.35';
+            piece.style.borderRadius = '4px';
+            hitLineEl.appendChild(piece);
+        }
+
+        resetGame();
+        if (showAlert) {
+            if (gameMode === 'recording') notesData = [];
+            alert("설정이 적용되었습니다!");
+        }
+    }
+
+    window.onload = () => { applySettings(false); updateLaneInputsUI(); };
+
+    // ── 오디오 업로드 ──
+    audioInput.addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                audioDataUrl = event.target.result;
+                bgm.src = audioDataUrl;
+                document.getElementById('audio-label').textContent = '🎵 ' + file.name;
+                statusText.innerText = "음악 준비 완료! [자동 생성] 또는 [수동 녹음]을 선택하세요.";
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // ── 자동 생성 ──
+    async function autoGenerateNotes() {
+        removeFocus();
+        if (!audioDataUrl) return alert("먼저 음악 파일(MP3)을 넣어주세요!");
+        resetGame();
+        statusText.innerText = "⏳ AI 분석 중입니다... (1~3초 소요)";
+        try {
+            const response     = await fetch(audioDataUrl);
+            const arrayBuffer  = await response.arrayBuffer();
+            const audioCtx     = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer  = await audioCtx.decodeAudioData(arrayBuffer);
+            const offlineCtx   = new OfflineAudioContext(1, audioBuffer.length, audioBuffer.sampleRate);
+            const source       = offlineCtx.createBufferSource();
+            source.buffer      = audioBuffer;
+            const filter       = offlineCtx.createBiquadFilter();
+            filter.type        = 'lowpass';
+            filter.frequency.value = 150;
+            source.connect(filter);
+            filter.connect(offlineCtx.destination);
+            source.start(0);
+            const renderedBuffer = await offlineCtx.startRendering();
+            const data           = renderedBuffer.getChannelData(0);
+            const sampleRate     = renderedBuffer.sampleRate;
+            let maxVal = 0;
+            for (let i = 0; i < data.length; i += 100) if (Math.abs(data[i]) > maxVal) maxVal = Math.abs(data[i]);
+            const dynamicThreshold = maxVal * 0.6;
+            const minDistance      = sampleRate * 0.25;
+            let lastPeak = -minDistance;
+            const peaks  = [];
+            for (let i = 0; i < data.length; i++) {
+                if (Math.abs(data[i]) > dynamicThreshold && i - lastPeak > minDistance) {
+                    peaks.push(i); lastPeak = i;
+                }
+            }
+            const syncOffset = parseInt(document.getElementById('sync-input').value) || -80;
+            notesData = peaks.map(peak => {
+                let t = (peak / sampleRate) * 1000 + syncOffset;
+                if (t < 0) t = 0;
+                return { time: t, lane: Math.floor(Math.random() * currentLaneCount), spawned: false };
+            });
+            if (notesData.length > 0) {
+                gameEndTime = Math.max(...notesData.map(n => n.time)) + 2000;
+                alert(`🎵 인공지능 분석 완료!\n총 ${notesData.length}개의 노트가 생성되었습니다.\n[▶️ 게임 시작]을 눌러 바로 플레이해보세요!`);
+                statusText.innerText = `✨ 자동 채보 완료 (${notesData.length}개)!`;
+            } else {
+                alert("비트가 약한 곡이라 노트를 생성하지 못했습니다. 수동 녹음을 이용해주세요.");
+                statusText.innerText = "수동으로 노트를 녹음해주세요.";
+            }
+        } catch (err) {
+            alert("분석 중 오류가 발생했습니다.");
+            statusText.innerText = "오류 발생! 수동 녹음을 이용해주세요.";
+        }
+    }
+
+    // ── 저장/불러오기 (기존 방식 유지) ──
+    function exportGameFile() {
+        removeFocus();
+        if (!audioDataUrl || notesData.length === 0) return alert("저장할 게임(노트)이 없습니다!");
+        const gameBundle = {
+            audio: audioDataUrl,
+            notes: notesData,
+            laneCount: currentLaneCount,
+            keys: currentKeys,
+            speed: fallDuration
+        };
+        const blob = new Blob([JSON.stringify(gameBundle)], { type: 'text/plain' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url; a.download = '나만의음악게임.txt'; a.click();
+        URL.revokeObjectURL(url);
+        alert("저장 성공! 다운로드 폴더의 '나만의음악게임.txt'를 친구에게 보내주세요!");
+    }
+
+    gameFileInput.addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                try {
+                    const savedData = JSON.parse(event.target.result);
+                    if (savedData.audio && savedData.notes) {
+                        audioDataUrl = savedData.audio;
+                        notesData    = savedData.notes;
+                        bgm.src      = audioDataUrl;
+
+                        if (savedData.laneCount && savedData.keys) {
+                            document.getElementById('lane-count-select').value = savedData.laneCount;
+                            updateLaneInputsUI();
+                            for (let i = 0; i < savedData.laneCount; i++) {
+                                document.getElementById('key-' + i).value = savedData.keys[i].toUpperCase();
+                            }
+                            if (savedData.speed) document.getElementById('speed-select').value = savedData.speed;
+                            applySettings(false);
+                        }
+                        statusText.innerText = "✨ 친구 게임 로딩 성공! [▶️ 게임 시작]을 누르세요.";
+                    }
+                } catch (err) { alert("파일을 읽는 중 오류가 발생했습니다."); }
+            };
+            reader.readAsText(file);
+        }
+    });
+
+    // ── 키보드 입력 ──
+    window.addEventListener('keydown', function (e) {
+        if (e.key === ' ' || e.key === 'Spacebar') e.preventDefault();
+        if (e.repeat || gameStartTime === 0 || gameMode === 'idle') return;
+        const pressedLane = currentKeys.indexOf(e.key.toLowerCase());
+        if (pressedLane !== -1) handleInput(pressedLane);
+    });
+    </script>
+</body>
+</html>
