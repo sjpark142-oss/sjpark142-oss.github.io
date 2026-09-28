@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>사진 확대</title>
+</head>
+<body>
+<input type="file" id="file">
+<input type="number" id="scale" value="2" min="1">
+<button onclick="process()">확대</button>
+<br><br>
+<canvas id="canvas"></canvas>
+
+<script>
+function process() {
+    const file = document.getElementById("file").files[0];
+    const scale = parseInt(document.getElementById("scale").value);
+
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+
+    img.onload = () => {
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+
+        const temp = document.createElement("canvas");
+        temp.width = img.width;
+        temp.height = img.height;
+        const tctx = temp.getContext("2d");
+
+        tctx.drawImage(img, 0, 0);
+        const data = tctx.getImageData(0, 0, img.width, img.height).data;
+
+        let newImage = ctx.createImageData(canvas.width, canvas.height);
+
+        for (let y = 0; y < img.height; y++) {
+            for (let x = 0; x < img.width; x++) {
+                let i = (y * img.width + x) * 4;
+
+                for (let dy = 0; dy < scale; dy++) {
+                    for (let dx = 0; dx < scale; dx++) {
+                        let nx = x * scale + dx;
+                        let ny = y * scale + dy;
+                        let ni = (ny * canvas.width + nx) * 4;
+
+                        newImage.data[ni] = data[i];
+                        newImage.data[ni+1] = data[i+1];
+                        newImage.data[ni+2] = data[i+2];
+                        newImage.data[ni+3] = data[i+3];
+                    }
+                }
+            }
+        }
+
+        ctx.putImageData(newImage, 0, 0);
+    };
+}
+</script>
+</body>
+</html>
