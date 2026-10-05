@@ -675,6 +675,7 @@
                 gameState = 'GAMEOVER';
                 sfx.playWin();
                 showGameOverScreen();
+                if (gameMode === 'AI') {localStorage.setItem("score", p1.score);}
                 return true;
             }
             return false;
