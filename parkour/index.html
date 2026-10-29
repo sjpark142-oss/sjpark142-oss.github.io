@@ -2,8 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>파쿠르 76 Extention</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>파쿠르 76</title>
 <style>
 :root{--bg:#0b1020;--fg:#f2f5ff;--ac:#4dd6a0;box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif;color:var(--fg)}
@@ -15,12 +15,25 @@ canvas{display:block}
 #cross{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:#fffc;pointer-events:none}
 #spd{position:fixed;bottom:14px;left:14px;font-size:13px;opacity:.85;text-shadow:0 1px 3px #000a;pointer-events:none}
 #ov{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0b1020cc;text-align:center;cursor:pointer}
-#ov .box{max-width:460px;padding:28px 32px;background:#162040;border-radius:14px;border:1px solid #ffffff22}
+#ov .box{max-width:460px;max-height:92vh;overflow:auto;box-sizing:border-box;padding:28px 32px;background:#162040;border-radius:14px;border:1px solid #ffffff22}
 #ov h1{margin:0 0 8px;font-size:30px}
 #ov p{margin:6px 0;line-height:1.6;font-size:15px}
 #ov .go{display:inline-block;margin-top:14px;padding:10px 26px;border-radius:8px;background:var(--ac);color:#06281c;font-weight:700}
 select{font-size:15px;padding:4px 8px;border-radius:6px}
 kbd{background:#ffffff22;border-radius:4px;padding:1px 6px;font-size:13px}
+html,body{overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#tc{position:fixed;inset:0;display:none;touch-action:none}
+#tz{position:absolute;inset:0;touch-action:none}
+#jb{position:absolute;width:124px;height:124px;margin:-62px 0 0 -62px;border-radius:50%;border:2px solid #ffffff55;background:#ffffff14;pointer-events:none}
+#js{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:#ffffff77}
+.tb{position:absolute;border-radius:50%;background:#ffffff26;border:2px solid #ffffff66;color:#fff;font:700 15px/1.1 system-ui,"Malgun Gothic",sans-serif;display:flex;align-items:center;justify-content:center;text-align:center;-webkit-tap-highlight-color:transparent;touch-action:none;text-shadow:0 1px 3px #000a}
+.tb.on{background:#4dd6a0aa}
+#bj{right:calc(24px + env(safe-area-inset-right));bottom:calc(28px + env(safe-area-inset-bottom));width:96px;height:96px;font-size:19px}
+#br{right:calc(138px + env(safe-area-inset-right));bottom:calc(44px + env(safe-area-inset-bottom));width:70px;height:70px}
+#bt,#be,#bp{width:46px;height:46px;border-radius:12px;font-size:13px;top:calc(12px + env(safe-area-inset-top))}
+#bp{right:calc(12px + env(safe-area-inset-right))}#be{right:calc(66px + env(safe-area-inset-right))}#bt{right:calc(120px + env(safe-area-inset-right))}
+.touch #spd{bottom:auto;top:96px}
+.touch #sw{font-size:22px;top:8px}
 #tw{position:fixed;inset:0;opacity:0;pointer-events:none;transition:opacity .12s}
 #wf{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none}
 #rw{position:fixed;inset:0;display:none;cursor:pointer;overflow:hidden;
@@ -38,11 +51,15 @@ kbd{background:#ffffff22;border-radius:4px;padding:1px 6px;font-size:13px}
 </head>
 <body>
 <div id="flash"></div><div id="tw"></div><div id="wf"></div><div id="sw">00:00.00</div><div id="hud"></div><div id="cross"></div><div id="spd"></div>
+<div id="tc"><div id="tz"></div><div id="jb"><div id="js"></div></div>
+<div class="tb" id="bj">점프</div><div class="tb" id="br">달리기</div>
+<div class="tb" id="bt">다시<br>시작</div><div class="tb" id="be">시점</div><div class="tb" id="bp">메뉴</div></div>
 <div id="rw"><div class="band"></div><div class="tt">◀◀ 되감는 중</div><div class="lv" id="rwlv"></div><div class="hint">클릭하면 건너뜁니다</div><div class="bar"><i id="rwbar"></i></div></div>
 <div id="ov"><div class="box">
 <h1 id="t">파쿠르 76</h1>
 <p id="m">끝에 있는 초록색 발판까지 달려가세요.<br>흰색 발판의 깃발이 체크포인트입니다. 밟으면 빨간색에서 초록색으로 바뀌고, 떨어지거나 빨간 가시에 닿으면 마지막 체크포인트에서 다시 시작합니다.<br>하늘색 얼음 발판은 미끄럽습니다.<br>5레벨마다 테마가 바뀌고, 테마마다 장애물과 환경이 달라집니다. 75레벨 너머에는 마지막 레벨 <b>끝</b>이 있습니다.</p>
-<p><kbd>W A S D</kbd> / 방향키 이동 · <kbd>Space</kbd> 점프<br><kbd>R</kbd> 누르는 동안 달리기(조금 더 빠르고 더 멀리 점프)<br>마우스로 시점 이동 · <kbd>E</kbd> 3인칭 전환 · <kbd>T</kbd> 다시 시작<br>사다리 앞에서 <kbd>W</kbd>를 누르고 있으면 올라갑니다 (<kbd>S</kbd> 내려가기)</p>
+<p><kbd>W A S D</kbd> / 방향키 이동 · <kbd>Space</kbd> 점프 (짧게 누르면 낮게, 길게 누르면 높게)<br><kbd>R</kbd> 누르는 동안 달리기(조금 더 빠르고 더 멀리 점프)<br>마우스로 시점 이동 · <kbd>E</kbd> 3인칭 전환 · <kbd>T</kbd> 다시 시작<br>사다리 앞에서 <kbd>W</kbd>를 누르고 있으면 올라갑니다 (<kbd>S</kbd> 내려가기)</p>
+<p id="mh" style="display:none">📱 모바일: 왼쪽 화면 드래그 = 이동 · 오른쪽 화면 드래그 = 시점<br>점프(짧게/길게) · 달리기(누를 때마다 켜짐/꺼짐) · 가로 화면을 추천합니다</p>
 <p id="sel"><span id="sl">시작 레벨</span>: <select id="lv" onclick="event.stopPropagation()" onchange="populateCp(+this.value)"></select><br><span id="cpw">체크포인트: <select id="cp" onclick="event.stopPropagation()"></select></span><br><small style="opacity:.7">체크포인트를 밟으면 이 브라우저에 자동 저장됩니다. 레벨과 체크포인트를 골라 이어서 할 수 있어요.</small></p>
 <div class="go" id="go">클릭하여 시작</div>
 </div></div>
@@ -64,6 +81,7 @@ addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updat
 
 function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 
+const CUT=4.2;let jbuf=-1e9;
 let level=1,cpBoxes=[],curCpi=0,boxes=[],group=null,goal=null,startPos=new THREE.Vector3(),minY=0;
 let P={x:0,y:0,z:0,vx:0,vy:0,vz:0,g:false,last:0},yaw=0,pitch=0,time=0,falls=0,state='menu',t0=0;
 
@@ -646,12 +664,14 @@ function hit(){
   }return null;
 }
 
+function toggleTp(){tp=!tp;$('cross').style.display=tp?'none':''}
 const keys={};
 addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
   if(e.code==='KeyT'&&state==='play'){respawn(true)}
-  if(e.code==='KeyE'&&state==='play'){tp=!tp;$('cross').style.display=tp?'none':''}
+  if(e.code==='Space')jbuf=performance.now();
+  if(e.code==='KeyE'&&state==='play')toggleTp();
 });
 addEventListener('keyup',e=>{keys[e.code]=false});
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
@@ -701,7 +721,7 @@ $('ov').addEventListener('click',()=>{
   }
   try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();ac.resume()}catch(e){}
   state='play';$('ov').style.display='none';
-  try{cv.requestPointerLock();usedLock=true}catch(e){usedLock=false}
+  if(!isTouch){try{cv.requestPointerLock();usedLock=true}catch(e){usedLock=false}}
 });
 
 function win(){
@@ -825,9 +845,10 @@ function step(dt,now){
   const a=Math.min(1,k*dt);
   P.vx+=(wx*spd-P.vx)*a;P.vz+=(wz*spd-P.vz)*a;
   if(P.g)P.last=now;
-  if(keys.Space&&now-P.last<110){P.vy=sp?10.2:9.5;P.g=false;P.last=-1e9}
+  if((keys.Space||now-jbuf<90)&&now-P.last<110){P.vy=sp?10.2:9.5;P.g=false;P.last=-1e9;P.jc=true;jbuf=-1e9}
   let onL=false;
   for(const s of ladders){if(P.x+HW>s.minx&&P.x-HW<s.maxx&&P.z+HW>s.minz&&P.z-HW<s.maxz&&P.y<s.maxy&&P.y+PH>s.miny){onL=true;break}}
+  if(P.jc){if(onL||P.g||P.vy<=0)P.jc=false;else if(!keys.Space){P.vy=Math.min(P.vy,CUT);P.jc=false}}   /* 점프 키를 일찍 떼면 낮은 점프 */
   const up=keys.KeyW||keys.ArrowUp,dn=keys.KeyS||keys.ArrowDown;
   if(onL&&up)P.vy=4.5;
   else if(onL&&dn&&!P.g)P.vy=-3.5;
@@ -874,6 +895,54 @@ function loop(now){
   camera.rotation.set(pitch,yaw,0);
   if(rwSky&&rwSky.visible)rwSky.position.copy(camera.position);
   renderer.render(scene,camera);
+}
+/* ===== 모바일 터치 컨트롤 ===== */
+var isTouch=('ontouchstart' in window)||(typeof navigator!=='undefined'&&navigator.maxTouchPoints>0);
+{
+  const tc=$('tc'),tz=$('tz'),jb=$('jb'),js=$('js'),JR=56;
+  let joyId=null,joyO=null,lookId=null,lookP=null,run=false,shown=false;
+  if(isTouch){document.body.classList.add('touch');$('mh').style.display=''}
+  const homeJoy=()=>{jb.style.left='96px';jb.style.top=(innerHeight-110)+'px';js.style.transform=''};
+  const setJoy=(dx,dy)=>{
+    const m=Math.hypot(dx,dy),k=m>JR?JR/m:1;dx*=k;dy*=k;js.style.transform='translate('+dx+'px,'+dy+'px)';
+    const t=.32*JR;keys.KeyA=dx<-t;keys.KeyD=dx>t;keys.KeyW=dy<-t;keys.KeyS=dy>t;
+  };
+  const clearJoy=()=>{keys.KeyA=keys.KeyD=keys.KeyW=keys.KeyS=false;joyId=null;homeJoy()};
+  homeJoy();
+  tz.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches){
+      if(t.clientX<innerWidth*.5&&joyId===null){joyId=t.identifier;joyO={x:t.clientX,y:t.clientY};jb.style.left=t.clientX+'px';jb.style.top=t.clientY+'px';setJoy(0,0)}
+      else if(t.clientX>=innerWidth*.5&&lookId===null){lookId=t.identifier;lookP={x:t.clientX,y:t.clientY}}
+    }
+  },{passive:false});
+  tz.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches){
+      if(t.identifier===joyId)setJoy(t.clientX-joyO.x,t.clientY-joyO.y);
+      else if(t.identifier===lookId&&state==='play'){
+        yaw-=(t.clientX-lookP.x)*.0048;pitch-=(t.clientY-lookP.y)*.0048;pitch=Math.max(-1.5,Math.min(1.5,pitch));lookP={x:t.clientX,y:t.clientY};
+      }
+    }
+  },{passive:false});
+  const end=e=>{e.preventDefault();for(const t of e.changedTouches){if(t.identifier===joyId)clearJoy();if(t.identifier===lookId)lookId=null}};
+  tz.addEventListener('touchend',end,{passive:false});tz.addEventListener('touchcancel',end,{passive:false});
+  const press=(id,on,off)=>{
+    const b=$(id);
+    b.addEventListener('touchstart',e=>{e.preventDefault();b.classList.add('on');on()},{passive:false});
+    const up=e=>{e.preventDefault();b.classList.remove('on');if(off)off()};
+    b.addEventListener('touchend',up,{passive:false});b.addEventListener('touchcancel',up,{passive:false});
+  };
+  press('bj',()=>{keys.Space=true;jbuf=performance.now()},()=>{keys.Space=false});
+  $('br').addEventListener('touchstart',e=>{e.preventDefault();run=!run;keys.KeyR=run;$('br').classList.toggle('on',run)},{passive:false});
+  press('bt',()=>{if(state==='play')respawn(true)});
+  press('be',()=>{if(state==='play')toggleTp()});
+  press('bp',()=>{if(state==='play')pause()});
+  /* 플레이 중일 때만 컨트롤 표시 (메뉴/엔딩 중에는 숨김) */
+  setInterval(()=>{
+    const want=isTouch&&state==='play';
+    if(want!==shown){shown=want;tc.style.display=want?'block':'none';if(!want){clearJoy();keys.Space=false;lookId=null}}
+  },100);
 }
 build(level);
 {const e=sv.lv[level],c=sv.last.L===level?sv.last.cp:0;populateCp(level,c);if(c>0&&e)startAt(c)}
