@@ -316,7 +316,7 @@ try{({createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabas
 /* ============ 설정 ============ */
 const SUPABASE_URL='';       // 예: https://xxxx.supabase.co  (비워두고 화면의 '서버 설정'에서 입력해도 됩니다)
 const SUPABASE_ANON_KEY='';  // anon public key
-const ID_DOMAIN='gmail.com'; // 아이디를 내부적으로 "아이디@도메인" 이메일로 바꿔 씁니다 (메일은 발송되지 않음). 가입 때 이메일 오류가 나면 이 값을 바꿔보세요.
+// 로그인은 이메일을 쓰지 않고 서버의 아이디/비밀번호 함수(bw_*)로 처리합니다.
 
 /* ============ 유틸 ============ */
 const $=id=>document.getElementById(id);
@@ -343,9 +343,11 @@ function censor(s){let r=String(s);for(const re of badRe)r=r.replace(re,m=>'♡'
 let CFG={};try{CFG=JSON.parse(localStorage.getItem('bw_cfg')||'{}')}catch{}
 const SB_URL=CFG.url||SUPABASE_URL,SB_KEY=CFG.key||SUPABASE_ANON_KEY;
 let sb=null;
-if(createClient&&SB_URL&&SB_KEY){try{sb=createClient(SB_URL,SB_KEY,{auth:{persistSession:true,detectSessionInUrl:true},realtime:{params:{eventsPerSecond:20}}})}catch(e){console.warn(e)}}
+if(createClient&&SB_URL&&SB_KEY){try{sb=createClient(SB_URL,SB_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},realtime:{params:{eventsPerSecond:20}}})}catch(e){console.warn(e)}}
 const SESSION=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2));
 const U={user:null,profile:null,isAdmin:false,owned:new Set(),prices:{}};
+let TOKEN=null;try{TOKEN=localStorage.getItem('bw_token')||null}catch{}
+const trpc=(fn,args={})=>sb.rpc(fn,{p_token:TOKEN,...args});
 const FREE_AV={skin:'#f5cd30',shirt:'#1e88e5',pants:'#2d3b8c',hat:'none',rot:0,tint:false};
 function guestStore(){try{return JSON.parse(localStorage.getItem('bw_guest')||'{}')}catch{return {}}}
 function myAvatar(){const a=(U.profile?U.profile.avatar:guestStore().avatar)||{};return {...FREE_AV,...a}}
@@ -577,10 +579,8 @@ $('edLoadTxt').onclick=async()=>{const f=await pickFile($('fTxt'));if(!f)return;
 $('edSaveOnline').onclick=async()=>{
   if(!sb||!U.user)return toast('온라인 저장은 로그인이 필요해요');
   const data=JSON.stringify(ED.map);if(data.length>7.9e6)return toast('맵이 너무 커요 (8MB 제한). OBJ를 줄여주세요');
-  const row={name:ED.map.name||'이름 없는 맵',data,published:ED.map.published!==false};
-  let res;if(ED.mapId)res=await sb.from('maps').update({...row,updated_at:new Date().toISOString()}).eq('id',ED.mapId).select('id').single();
-  else res=await sb.from('maps').insert(row).select('id').single();
-  if(res.error)return toast('저장 실패: '+res.error.message);ED.mapId=res.data.id;updateMapInfo();toast('온라인에 저장했어요!')};
+  const res=await trpc('bw_save_map',{p_id:ED.mapId||null,p_name:ED.map.name||'이름 없는 맵',p_data:data,p_pub:ED.map.published!==false});
+  if(res.error)return toast('저장 실패: '+res.error.message);ED.mapId=res.data;updateMapInfo();toast('온라인에 저장했어요!')};
 $('edPlay').onclick=()=>{tc.detach();tc.visible=false;bh.visible=false;ED.sel=null;startGame(structuredClone(ED.map),{testing:true})};
 document.querySelectorAll('.tabs [data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs [data-tab]').forEach(x=>x.classList.toggle('on',x===b));
   for(const t of ['props','scripts','map'])$('tab'+t[0].toUpperCase()+t.slice(1)).classList.toggle('hide',t!==b.dataset.tab)});
@@ -907,8 +907,8 @@ function sanitizeAv(a){a=a&&typeof a==='object'?a:{};return {skin:hex(a.skin,FRE
 function addRemote(key,meta){const nick=censor(String(meta.nick||'플레이어').slice(0,20));const av=sanitizeAv(meta.av);
   const r={key,uid:meta.uid,nick,avatarCfg:av,av:makeBlocky(av),tp:new THREE.Vector3(0,5,0),tr:0,ry:0,walkT:0,air:false,hp:100,stats:{},vis:true,tag:makeTag(nick),first:true};
   r.av.root.visible=false;scene.add(r.av.root);G.remotes.set(key,r);G.evq.push({k:'join',id:key,name:nick});addChat(null,nick+' 님이 입장했어요','sys');
-  if(meta.hasObj&&meta.uid&&sb){sb.from('profiles').select('avatar_obj').eq('id',meta.uid).single().then(({data})=>{
-    if(data&&data.avatar_obj&&G.remotes.get(key)===r&&typeof data.avatar_obj==='string'&&data.avatar_obj.length<3e6){try{const na=makeObjAvatar(data.avatar_obj,av);na.root.position.copy(r.av.root.position);na.root.visible=r.av.root.visible;disposeAv(r.av);scene.add(na.root);r.av=na}catch(e){console.warn(e)}}})}}
+  if(meta.hasObj&&meta.uid&&sb&&TOKEN){trpc('bw_get_avatar',{p_uid:meta.uid}).then(({data:ao})=>{
+    if(typeof ao==='string'&&ao&&G.remotes.get(key)===r&&ao.length<3e6){try{const na=makeObjAvatar(ao,av);na.root.position.copy(r.av.root.position);na.root.visible=r.av.root.visible;disposeAv(r.av);scene.add(na.root);r.av=na}catch(e){console.warn(e)}}})}}
 function dropRemote(r){if(r.av)disposeAv(r.av);if(r.tag)r.tag.el.remove()}
 function onPos(p){if(!p||typeof p!=='object')return;const r=G.remotes.get(p.k);if(!r||!v3ok(p.p))return;
   r.tp.set(clamp(p.p[0],-1e5,1e5),clamp(p.p[1],-1e5,1e5),clamp(p.p[2],-1e5,1e5));r.tr=+p.r||0;r.air=p.a===2;r.hp=typeof p.h==='number'?p.h:100;
@@ -931,36 +931,35 @@ function updateUserBox(){const logged=!!U.user;$('uName').textContent=logged?myN
   const rt=robuxText();$('uRobux').textContent=rt;$('uRobux').classList.toggle('hide',!rt);
   $('btnLogin').classList.toggle('hide',logged||!sb);$('btnLogout').classList.toggle('hide',!logged);$('btnAdmin').classList.toggle('hide',!U.isAdmin);
   $('netState').textContent=sb?(logged?'온라인 연결됨':'로그인하면 온라인 맵을 즐길 수 있어요'):'오프라인 모드 — 서버 설정을 입력하면 온라인 기능이 켜져요 (에디터·테스트 플레이는 지금도 가능)'}
-async function loadProfile(){if(!sb||!U.user)return;
-  let {data,error}=await sb.from('profiles').select('*').eq('id',U.user.id).maybeSingle();
-  if(!data&&!error){const nick=String((U.user.user_metadata&&(U.user.user_metadata.full_name||U.user.user_metadata.name))||U.user.email.split('@')[0]).slice(0,20);
-    await sb.from('profiles').insert({id:U.user.id,nickname:nick});({data}=await sb.from('profiles').select('*').eq('id',U.user.id).maybeSingle())}
-  if(data){U.profile=data}
-  const pr=await sb.from('purchases').select('item_id');U.owned=new Set((pr.data||[]).map(x=>x.item_id));
-  const si=await sb.from('shop_items').select('id,price');U.prices={};for(const x of si.data||[])U.prices[x.id]=x.price}
-async function onSession(session){if(!session||(U.user&&U.user.id===session.user.id))return;U.user=session.user;
-  U.isAdmin=false;await loadProfile();try{const a=await sb.rpc('is_admin');U.isAdmin=a.data===true}catch{}updateUserBox();lobbyInit();loadMaps()}
+function setTok(t){TOKEN=t;try{t?localStorage.setItem('bw_token',t):localStorage.removeItem('bw_token')}catch{}}
+function clearUser(){U.user=null;U.profile=null;U.isAdmin=false;U.owned=new Set()}
+async function loadProfile(){if(!sb||!TOKEN)return false;
+  const [me,shop]=await Promise.all([sb.rpc('bw_me',{p_token:TOKEN}),sb.rpc('bw_shop')]);
+  if(me.error){toast('서버 연결 오류: '+me.error.message,5);return false}
+  if(!me.data){setTok(null);clearUser();return false}
+  const d=me.data;U.user={id:d.id,username:d.username};U.profile={nickname:d.nickname,robux:d.robux,avatar:d.avatar||{},avatar_obj:d.avatar_obj||null};
+  U.isAdmin=d.is_admin===true;U.owned=new Set(d.owned||[]);U.prices=shop.data||{};return true}
+async function afterLogin(){const ok=await loadProfile();updateUserBox();if(ok){lobbyInit();loadMaps()}return ok}
 $('btnLogin').onclick=()=>{if(!sb)return toast('먼저 서버 설정을 입력해주세요');
   openModal(`<h2>로그인 / 회원가입</h2>
   <div class="row"><label>아이디</label><input id="lgId" type="text" maxlength="16" placeholder="영문·숫자·_ 3~16자" autocomplete="username"></div>
   <div class="row"><label>비밀번호</label><input id="lgPw" type="password" maxlength="64" placeholder="6자 이상" autocomplete="current-password"></div>
   <div class="row"><button class="pri" id="lgIn">로그인</button><button class="grn" id="lgUp">회원가입</button><button id="lgX">닫기</button></div>
-  <p class="dim" style="font-size:12px;max-width:340px;margin:0">처음이면 "회원가입"을 누르세요. 비밀번호를 잊으면 복구할 수 없으니 꼭 기억해 두세요.</p>`,
+  <p class="dim" style="font-size:12px;max-width:340px;margin:0">처음이면 "회원가입"을 누르세요. 이메일은 필요 없어요. 비밀번호를 잊으면 복구할 수 없으니 꼭 기억해 두세요.</p>`,
   b=>{const cred=()=>{const id=b.querySelector('#lgId').value.trim().toLowerCase(),pw=b.querySelector('#lgPw').value;
       if(!/^[a-z0-9_]{3,16}$/.test(id)){toast('아이디는 영문·숫자·_ 3~16자예요');return null}
-      if(pw.length<6){toast('비밀번호는 6자 이상이에요');return null}return {id,pw,email:id+'@'+ID_DOMAIN}};
-    const doIn=async()=>{const c=cred();if(!c)return;const r=await sb.auth.signInWithPassword({email:c.email,password:c.pw});
-      if(r.error)return toast(/invalid|credentials/i.test(r.error.message)?'아이디 또는 비밀번호가 틀렸어요':'로그인 실패: '+r.error.message,5);closeModal();toast('로그인했어요')};
-    const doUp=async()=>{const c=cred();if(!c)return;const r=await sb.auth.signUp({email:c.email,password:c.pw,options:{data:{full_name:c.id}}});
-      if(r.error)return toast(/registered|already|exists/i.test(r.error.message)?'이미 있는 아이디예요':'가입 실패: '+r.error.message,6);
-      if(!r.data.session&&!(r.data.user&&r.data.user.identities&&r.data.user.identities.length===0)){toast('가입은 됐는데 이메일 확인이 켜져 있어요. Supabase에서 Confirm email을 꺼주세요',8);return}
-      if(!r.data.session){toast('이미 있는 아이디예요');return}
-      closeModal();toast('가입 완료! 환영해요')};
+      if(pw.length<6){toast('비밀번호는 6자 이상이에요');return null}return {id,pw}};
+    const doIn=async()=>{const c=cred();if(!c)return;const r=await sb.rpc('bw_login',{p_user:c.id,p_pass:c.pw});
+      if(r.error)return toast('로그인 실패: '+r.error.message,6);const d=r.data||{};
+      if(!d.token)return toast(d.error==='locked'?'여러 번 틀려서 잠겼어요. 5분 뒤에 다시 해주세요':'아이디 또는 비밀번호가 틀렸어요',5);
+      setTok(d.token);closeModal();if(await afterLogin())toast('로그인했어요')};
+    const doUp=async()=>{const c=cred();if(!c)return;const r=await sb.rpc('bw_register',{p_user:c.id,p_pass:c.pw});
+      if(r.error)return toast(/exists/i.test(r.error.message)?'이미 있는 아이디예요':'가입 실패: '+r.error.message,6);
+      setTok(r.data.token);closeModal();if(await afterLogin())toast('가입 완료! 환영해요')};
     b.querySelector('#lgIn').onclick=doIn;b.querySelector('#lgUp').onclick=doUp;b.querySelector('#lgX').onclick=closeModal;
     b.querySelector('#lgPw').addEventListener('keydown',e=>{if(e.key==='Enter')doIn()});b.querySelector('#lgId').focus()})};
-$('btnLogout').onclick=async()=>{await sb.auth.signOut();U.user=null;U.profile=null;U.isAdmin=false;U.owned=new Set();updateUserBox();loadMaps()};
-if(sb){sb.auth.onAuthStateChange((ev,s)=>{if(ev==='SIGNED_IN'&&s)onSession(s);if(ev==='SIGNED_OUT'){U.user=null;U.profile=null;U.isAdmin=false;updateUserBox()}});
-  const {data}=await sb.auth.getSession();if(data.session)await onSession(data.session)}
+$('btnLogout').onclick=async()=>{try{await sb.rpc('bw_logout',{p_token:TOKEN})}catch{}setTok(null);clearUser();updateUserBox();loadMaps()};
+if(sb&&TOKEN)await afterLogin();
 $('btnCfg').onclick=()=>openModal(`<h2>서버(Supabase) 설정</h2>
   <p class="dim" style="max-width:420px">Supabase 프로젝트의 Project URL과 anon public key를 입력하세요. (anon 키는 공개용 키예요. 파일 상단 SUPABASE_URL / SUPABASE_ANON_KEY에 직접 넣어도 됩니다.)</p>
   <div class="row"><label>URL</label><input id="cfgUrl" type="text" style="width:300px" value="${escHtml(SB_URL)}"></div>
@@ -971,18 +970,18 @@ $('btnCfg').onclick=()=>openModal(`<h2>서버(Supabase) 설정</h2>
 async function loadMaps(){const box=$('mapList');
   if(!sb){box.innerHTML='<p class="dim">서버 설정을 하면 온라인 맵이 여기에 표시돼요.</p>';return}
   if(!U.user){box.innerHTML='<p class="dim">로그인하면 온라인 맵 목록이 보여요.</p>';return}
-  const {data,error}=await sb.from('maps').select('id,name,owner,updated_at,published,profiles(nickname)').order('updated_at',{ascending:false}).limit(120);
+  const {data,error}=await trpc('bw_list_maps');
   if(error){box.innerHTML='<p class="dim">맵을 불러오지 못했어요: '+escHtml(error.message)+'<br>supabase_setup.sql 을 실행했는지 확인해주세요.</p>';return}
   loadMaps.data=data;renderMaps()}
 function renderMaps(){const box=$('mapList'),data=loadMaps.data||[];if(!U.user)return;
   if(!data.length){box.innerHTML='<p class="dim">아직 온라인 맵이 없어요. 에디터에서 맵을 만들고 "온라인 저장"을 눌러보세요!</p>';return}
   const list=[...data].sort((a,b)=>(lobbyCounts[b.id]||0)-(lobbyCounts[a.id]||0)||new Date(b.updated_at)-new Date(a.updated_at));
   box.innerHTML='';for(const m of list){const mine=U.user&&m.owner===U.user.id,cnt=lobbyCounts[m.id]||0;const c=document.createElement('div');c.className='card';
-    c.innerHTML=`<h3>${escHtml(m.name)}</h3><div class="meta">by ${escHtml(censor((m.profiles&&m.profiles.nickname)||'?'))} · <span class="pc">👥 ${cnt}명</span>${m.published?'':' · 비공개'}</div><div class="acts"><button class="pri" data-a="play">플레이</button>${mine?'<button data-a="edit">편집</button>':''}${mine||U.isAdmin?'<button class="red" data-a="del">삭제</button>':''}</div>`;
+    c.innerHTML=`<h3>${escHtml(m.name)}</h3><div class="meta">by ${escHtml(censor(m.owner_nick||'?'))} · <span class="pc">👥 ${cnt}명</span>${m.published?'':' · 비공개'}</div><div class="acts"><button class="pri" data-a="play">플레이</button>${mine?'<button data-a="edit">편집</button>':''}${mine||U.isAdmin?'<button class="red" data-a="del">삭제</button>':''}</div>`;
     c.onclick=async e=>{const a=e.target.dataset.a;if(!a)return;
-      if(a==='del'){if(!confirm('"'+m.name+'" 맵을 삭제할까요?'))return;const r=await sb.from('maps').delete().eq('id',m.id);if(r.error)toast(r.error.message);else loadMaps();return}
-      const r=await sb.from('maps').select('data').eq('id',m.id).single();if(r.error)return toast('불러오기 실패: '+r.error.message);
-      try{const map=parseMapText(r.data.data);map.published=m.published;if(a==='play')startGame(map,{mapId:m.id});else edOpen(map,m.id)}catch(err){toast(err.message)}};
+      if(a==='del'){if(!confirm('"'+m.name+'" 맵을 삭제할까요?'))return;const r=await trpc('bw_delete_map',{p_id:m.id});if(r.error)toast(r.error.message);else loadMaps();return}
+      const r=await trpc('bw_get_map',{p_id:m.id});if(r.error)return toast('불러오기 실패: '+r.error.message);
+      try{const map=parseMapText(r.data);map.published=m.published;if(a==='play')startGame(map,{mapId:m.id});else edOpen(map,m.id)}catch(err){toast(err.message)}};
     box.appendChild(c)}}
 $('btnNew').onclick=()=>edOpen(newMap());
 $('btnDemo').onclick=()=>edOpen(demoMap());
@@ -1013,7 +1012,7 @@ $('btnAvatar').onclick=()=>{
     b.querySelector('#avX').onclick=closeModal;
     b.querySelector('#avSave').onclick=async()=>{const n=censor(b.querySelector('#avNick').value.trim().slice(0,16))||nick||'플레이어';
       const a={skin,shirt:b.querySelector('#avShirt').value,pants:b.querySelector('#avPants').value,hat:b.querySelector('#avHat').value,rot:+b.querySelector('#avRot').value,tint:b.querySelector('#avTint').checked};
-      if(U.user&&sb){const r=await sb.from('profiles').update({nickname:n,avatar:a,avatar_obj:objText}).eq('id',U.user.id);if(r.error)return toast('저장 실패: '+r.error.message);U.profile={...U.profile,nickname:n,avatar:a,avatar_obj:objText}}
+      if(U.user&&sb){const r=await trpc('bw_save_profile',{p_nick:n,p_avatar:a,p_obj:objText});if(r.error)return toast('저장 실패: '+r.error.message);U.profile={...U.profile,nickname:n,avatar:a,avatar_obj:objText}}
       else{try{localStorage.setItem('bw_guest',JSON.stringify({nick:n,avatar:a,obj:objText}))}catch{return toast('저장 공간이 부족해요 (OBJ가 너무 큼)')}}
       updateUserBox();closeModal();toast('캐릭터를 저장했어요')}});};
 
@@ -1022,7 +1021,7 @@ $('btnShop').onclick=()=>{if(!U.user)return toast('상점은 로그인 후 이�
   openModal(`<h2>상점 <span class="robux" id="shopRb">${robuxText()}</span></h2><div class="shopg">${SHOP.map(s=>{const own=U.owned.has(s.id);const pr=U.prices[s.id]??'?';
     return `<div class="item"><div style="height:34px;margin-bottom:6px">${s.type==='skin'?`<span class="sw" style="background:${s.val};width:34px;height:34px"></span>`:'🎩'}</div><div>${s.name}</div><div class="dim" style="margin:4px 0">${U.isAdmin?'무료 (관리자)':'R$ '+pr}</div><button data-id="${s.id}" class="${own?'':'pri'}" ${own?'disabled':''}>${own?'보유중':'구매'}</button></div>`}).join('')}</div><div class="row" style="margin-top:12px"><button id="shopX">닫기</button></div>`,
   b=>{b.querySelector('#shopX').onclick=closeModal;b.querySelectorAll('button[data-id]').forEach(btn=>btn.onclick=async()=>{
-    const r=await sb.rpc('buy_item',{p_item:btn.dataset.id});if(r.error)return toast(r.error.message.includes('not enough')?'로벅스가 부족해요':'구매 실패: '+r.error.message);
+    const r=await trpc('bw_buy',{p_item:btn.dataset.id});if(r.error)return toast(r.error.message.includes('not enough')?'로벅스가 부족해요':'구매 실패: '+r.error.message);
     U.owned.add(btn.dataset.id);if(typeof r.data==='number'||typeof r.data==='string')U.profile.robux=r.data;btn.textContent='보유중';btn.disabled=true;btn.classList.remove('pri');
     b.querySelector('#shopRb').textContent=robuxText();updateUserBox();toast('구매 완료!')})})};
 $('btnAdmin').onclick=()=>{if(!U.isAdmin)return;
@@ -1031,7 +1030,7 @@ $('btnAdmin').onclick=()=>{if(!U.isAdmin)return;
   <div class="row"><button class="grn" id="admGo">전원에게 지급</button><button id="admX">닫기</button></div>`,
   b=>{b.querySelector('#admX').onclick=closeModal;b.querySelector('#admGo').onclick=async()=>{const n=Math.floor(+b.querySelector('#admAmt').value);if(!(n>=1&&n<=1e9))return toast('1 ~ 1,000,000,000 사이로 입력하세요');
     if(!confirm('모든 사용자에게 R$ '+n.toLocaleString()+' 지급할까요?'))return;
-    const r=await sb.rpc('admin_grant_all',{p_amount:n});if(r.error)return toast('실패: '+r.error.message);toast(r.data+'명에게 지급했어요!');await loadProfile();updateUserBox()}})};
+    const r=await trpc('bw_grant_all',{p_amount:n});if(r.error)return toast('실패: '+r.error.message);toast(r.data+'명에게 지급했어요!');await loadProfile();updateUserBox()}})};
 
 /* ============ 메인 루프 ============ */
 let last=performance.now();
