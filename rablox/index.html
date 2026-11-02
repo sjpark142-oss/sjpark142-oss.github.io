@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
-<title>로블 짝퉁겜 3D</title>
+<title>블록월드 3D</title>
 <style>
 :root{--bg:#232527;--bg2:#2d2f31;--bg3:#393b3d;--line:#4a4c4f;--dim:#bdbebe;--blue:#00a2ff;--green:#02b757}
 *{box-sizing:border-box}
@@ -75,6 +75,9 @@ input[type=range]{padding:0}
 .tag .bub{display:none;background:#fff;color:#111;font-weight:500;text-shadow:none;border-radius:10px;padding:4px 10px;margin-bottom:4px;max-width:240px;white-space:normal;word-break:break-word}
 #guiLayer{position:absolute;inset:0;pointer-events:none}
 #guiLayer .gt{position:absolute;transform:translate(-50%,-50%);text-shadow:0 2px 4px #000;font-weight:700;white-space:pre}
+#guiLayer .gbar{position:absolute;transform:translate(-50%,-50%);height:16px;background:rgba(0,0,0,.6);border:2px solid #000;border-radius:9px;overflow:hidden}
+#guiLayer .gbar i{display:block;height:100%;width:0;transition:width .12s}
+#guiLayer .gbar b{position:absolute;inset:0;text-align:center;font-size:11px;line-height:12px;text-shadow:0 1px 2px #000}
 #guiLayer button{position:absolute;transform:translate(-50%,-50%);pointer-events:auto}
 #netBadge{position:absolute;left:10px;bottom:10px;font-size:12px;color:var(--dim)}
 #toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:rgba(0,0,0,.8);padding:8px 18px;border-radius:20px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:99;max-width:80vw;text-align:center}
@@ -164,7 +167,7 @@ body.touch #guiLayer button{padding:10px 14px;font-size:16px;min-width:56px}
   </div>
   <div id="edLeft"><h4>탐색기</h4><div id="explorer"></div></div>
   <div id="edRight">
-    <div class="tabs"><button data-tab="props" class="on">속성</button><button data-tab="scripts">스크립트</button><button data-tab="map">맵 설정</button></div>
+    <div class="tabs"><button data-tab="props" class="on">속성</button><button data-tab="scripts">스크립트</button><button data-tab="items">아이템</button><button data-tab="map">맵 설정</button></div>
     <div class="tabc" id="tabProps"><div id="propBox"></div></div>
     <div class="tabc hide" id="tabScripts">
       <div class="fr"><select id="scList" style="flex:1"></select><button id="scAdd">＋</button><button id="scDel" class="red">삭제</button></div>
@@ -175,13 +178,13 @@ body.touch #guiLayer button{padding:10px 14px;font-size:16px;min-width:56px}
         <select id="scTpl"><option value="">예제 삽입…</option></select></div>
       <div id="scMsg" class="dim" style="font-size:12px"></div>
     </div>
+    <div class="tabc hide" id="tabItems"></div>
     <div class="tabc hide" id="tabMap">
       <div class="fr"><label>하늘색</label><input type="color" id="mapSky"></div>
       <div class="fr"><label>중력</label><input type="number" id="mapGrav" step="1" style="width:90px"></div>
       <div class="fr"><label>공개</label><label style="width:auto"><input type="checkbox" id="mapPub"> 온라인 목록에 공개</label></div>
       <div class="fr"><label>PvP</label><label style="width:auto"><input type="checkbox" id="mapPvp"> 검 등으로 다른 플레이어 공격 허용</label></div>
-      <div class="fr"><label>시작 아이템</label><input type="text" id="mapStart" placeholder="예: sword,speed" style="flex:1"></div>
-      <p class="dim" style="font-size:12px">기본 아이템: sword(검) speed(스피드 코일) jump(점프 코일) dash(대시) heal(회복약) bomb(폭탄)</p>
+      <p class="dim" style="font-size:12px">쓸 수 있는 아이템 · 시작 아이템 · 직접 만드는 아이템은 위의 '아이템' 탭에서 설정해요.</p>
       <p class="dim">플레이어 시작 위치는 '스폰' 파트로 정합니다. 스폰이 여러 개면 무작위로 선택돼요.</p>
       <p class="dim" id="mapInfo"></p>
     </div>
@@ -220,7 +223,8 @@ const _post=self.postMessage.bind(self);
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 const PM=new Map();let uidn=0,flushT=0,tpFlag=false;
 const dirty=new Set(),outq=[],tweens=[];
-const H={update:[],playerAdded:[],playerRemoving:[],chat:[],died:[],key:[],start:[],itemUsed:[],gui:{},net:{},item:{}};
+const H={update:[],playerAdded:[],playerRemoving:[],chat:[],died:[],key:[],start:[],itemUsed:[],respawn:[],jump:[],itemPicked:[],keyUp:[],gui:{},net:{},item:{}};
+let store={};const spins=new Map(),tagIdx=new Map();
 let invNow={};
 const NAMED={red:'#e53935',green:'#43a047',blue:'#1e88e5',yellow:'#fdd835',white:'#ffffff',black:'#111111',orange:'#fb8c00',purple:'#8e24aa',pink:'#ec407a',gray:'#9e9e9e',grey:'#9e9e9e',cyan:'#00acc1',brown:'#795548'};
 function normColor(v){v=String(v).trim().toLowerCase();if(NAMED[v])return NAMED[v];if(/^#[0-9a-f]{6}$/.test(v))return v;if(/^#[0-9a-f]{3}$/.test(v))return '#'+v[1]+v[1]+v[2]+v[2]+v[3]+v[3];return '#a0a0a0'}
@@ -234,6 +238,7 @@ function flush(){flushT=0;const q=outq.splice(0);
   dirty.clear();if(q.length)_post({t:'cmds',q})}
 function vec(arr,cb){const o={set(a,b,c){if(Array.isArray(a)){b=a[1];c=a[2];a=a[0]}else if(a&&typeof a==='object'){b=a.y;c=a.z;a=a.x}arr[0]=+a||0;arr[1]=+b||0;arr[2]=+c||0;cb();return o},toArray(){return arr.slice()},toString(){return arr.map(v=>v.toFixed(2)).join(',')}};
   ['x','y','z'].forEach((k,i)=>Object.defineProperty(o,k,{get:()=>arr[i],set:v=>{arr[i]=+v||0;cb()},enumerable:true}));return o}
+function posOf(a,b,c){if(a&&typeof a==='object'){if(a._pos)return [a._pos.x,a._pos.y,a._pos.z];if(Array.isArray(a))return [+a[0]||0,+a[1]||0,+a[2]||0];return [+a.x||0,+a.y||0,+a.z||0]}return [+a||0,+b||0,+c||0]}
 const toArr=v=>Array.isArray(v)?[+v[0]||0,+v[1]||0,+v[2]||0]:[+v.x||0,+v.y||0,+v.z||0];
 class Part{
   constructor(d){this._d=d;this.id=d.id;this._dk=new Set();this._dead=false;this._h={touch:[],touchEnd:[],click:[]};
@@ -252,15 +257,28 @@ class Part{
   onTouch(fn){this._h.touch.push(fn);out({op:'listen',id:this.id,k:'touch'});return this}
   onTouchEnd(fn){this._h.touchEnd.push(fn);out({op:'listen',id:this.id,k:'touch'});return this}
   onClick(fn){this._h.click.push(fn);out({op:'listen',id:this.id,k:'click'});return this}
-  destroy(){if(this._dead)return;this._dead=true;PM.delete(this.id);out({op:'del',id:this.id})}
+  rotate(x=0,y=0,z=0){this._rot.set(this._rot.x+(+x||0),this._rot.y+(+y||0),this._rot.z+(+z||0));return this}
+  moveBy(x=0,y=0,z=0){this._pos.set(this._pos.x+(+x||0),this._pos.y+(+y||0),this._pos.z+(+z||0));return this}
+  moveTo(x,y,z){this._pos.set(x,y,z);return this}
+  lookAt(x,y,z){const t=posOf(x,y,z);this._rot.y=Math.atan2(t[0]-this._pos.x,t[2]-this._pos.z)*180/Math.PI;return this}
+  distanceTo(o,y,z){const t=posOf(o,y,z);return Math.hypot(t[0]-this._pos.x,t[1]-this._pos.y,t[2]-this._pos.z)}
+  spin(x=0,y=0,z=0){if(!x&&!y&&!z)spins.delete(this);else spins.set(this,[+x||0,+y||0,+z||0]);return this}
+  addTag(t){t=String(t);(this._tags=this._tags||new Set()).add(t);let s=tagIdx.get(t);if(!s)tagIdx.set(t,s=new Set());s.add(this);return this}
+  removeTag(t){t=String(t);if(this._tags)this._tags.delete(t);const s=tagIdx.get(t);if(s)s.delete(this);return this}
+  hasTag(t){return !!(this._tags&&this._tags.has(String(t)))}
+  get tags(){return [...(this._tags||[])]}
+  fade(sec=1){return this.tween({transparency:1},sec).then(()=>{this.visible=false;this.collide=false})}
+  flash(c='#ffffff',sec=.2){const o=this.color;this.color=c;setTimeout(()=>{if(!this._dead)this.color=o},Math.max(16,sec*1000));return this}
+  destroy(){if(this._dead)return;spins.delete(this);this._dead=true;PM.delete(this.id);out({op:'del',id:this.id})}
   clone(props){const d=JSON.parse(JSON.stringify(this._d));d.id='r'+(++uidn);const p=reg(d);out({op:'create',d:JSON.parse(JSON.stringify(d))});if(props)for(const k in props)p[k]=props[k];return p}
-  tween(props,sec=1){return new Promise(res=>{const from={},to={};
+  tween(props,sec=1,ease){return new Promise(res=>{const from={},to={};
     for(const k of ['position','size','rotation'])if(props[k]!=null){from[k]=this[k].toArray();to[k]=toArr(props[k])}
     if(props.transparency!=null){from.tr=this.transparency;to.tr=+props.transparency}
-    tweens.push({p:this,from,to,t:0,dur:Math.max(.016,+sec||1),res})})}
+    tweens.push({p:this,from,to,t:0,dur:Math.max(.016,+sec||1),ease:EASE[ease]||EASE.inout,res})})}
 }
 function reg(d){const p=new Part(d);PM.set(d.id,p);return p}
 const players=[];
+const V3o=(x,y,z)=>base.V3(x,y,z);
 class Player{
   constructor(id,name,local){this.id=id;this.name=name;this.isLocal=local;this._pos=[0,0,0];this._hp=100;this._maxhp=100;this._speed=16;this._jump=50;this.robux=0;
     this._raw={};
@@ -274,6 +292,16 @@ class Player{
   get cameraYaw(){return 0}set cameraYaw(v){if(this.isLocal)out({op:'me',k:'cam',v:+v||0})}
   get seated(){return !!this._seated}set seated(v){if(this.isLocal){this._seated=!!v;out({op:'me',k:'seat',v:!!v})}}
   get heading(){return 0}set heading(v){if(this.isLocal)out({op:'me',k:'face',v:+v||0})}
+  get walkSpeed(){return this._speed}set walkSpeed(v){this.speed=v}
+  get frozen(){return !!this._frozen}set frozen(v){if(this.isLocal){this._frozen=!!v;out({op:'me',k:'freeze',v:!!v})}}
+  get cameraDistance(){return 0}set cameraDistance(v){if(this.isLocal)out({op:'me',k:'camdist',v:+v||14})}
+  get fov(){return 65}set fov(v){if(this.isLocal)out({op:'me',k:'fov',v:+v||65})}
+  launch(x=0,y=0,z=0){if(this.isLocal)out({op:'me',k:'vel',v:[+x||0,+y||0,+z||0]})}
+  teleportTo(t){const a=typeof t==='string'?base.get(t):t;if(a)this._p.set(posOf(a)[0],posOf(a)[1]+(a instanceof Part?a.size.y/2+.5:0),posOf(a)[2])}
+  distanceTo(o,y,z){const t=posOf(o,y,z);return Math.hypot(t[0]-this._pos[0],t[1]-this._pos[1],t[2]-this._pos[2])}
+  giveItem(id,n=1){if(this.isLocal)out({op:'item',k:'give',id:String(id).slice(0,20),n:+n||1})}
+  takeItem(id,n=1){if(this.isLocal)out({op:'item',k:'take',id:String(id).slice(0,20),n:+n||1})}
+  hasItem(id){return this.isLocal&&(invNow[String(id)]||0)>0}
   teleport(x,y,z){this._p.set(x,y,z)}
   damage(n){this.health=this._hp-(+n||0)}heal(n){this.health=Math.min(this._maxhp,this._hp+(+n||0))}
   kill(){if(this.isLocal)out({op:'me',k:'kill'})}respawn(){if(this.isLocal)out({op:'me',k:'respawn'})}
@@ -282,6 +310,7 @@ class Player{
 }
 const player=new Player('me','나',true);players.push(player);
 const pById=id=>players.find(p=>p.id===id);
+Object.defineProperties(players,{byName:{value:n=>players.find(p=>p.name===n)||null},random:{value:()=>players[Math.floor(Math.random()*players.length)]},others:{get:()=>players.filter(p=>!p.isLocal)}});
 let T0=Date.now();let keysDown=new Set();let IS_TOUCH_W=false;
 const base={Math,JSON,Date,Promise,
   print:(...a)=>_post({t:'log',level:'info',msg:a.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' ')}),
@@ -301,13 +330,29 @@ const base={Math,JSON,Date,Promise,
   gui:{message:(t,s=3)=>out({op:'msg',text:String(t).slice(0,120),sec:+s||3}),
     text:(id,t,o={})=>out({op:'hud',id:String(id),text:String(t).slice(0,200),x:o.x??50,y:o.y??10,size:o.size||22,color:o.color||'#fff'}),
     remove:id=>out({op:'hudDel',id:String(id)}),
+    bar:(id,v,max=100,o={})=>out({op:'bar',id:String(id),v:+v||0,max:+max||100,x:o.x??50,y:o.y??92,w:o.w??30,color:o.color||'#4c4',label:String(o.label||'').slice(0,40)}),
+    barRemove:id=>out({op:'hudDel',id:'bar_'+String(id)}),
+    title:(t,sub='',sec=3)=>{out({op:'hud',id:'__title',text:String(t).slice(0,60),x:50,y:30,size:44,color:'#fff'});out({op:'hud',id:'__sub',text:String(sub).slice(0,80),x:50,y:38,size:22,color:'#ddd'});setTimeout(()=>{out({op:'hudDel',id:'__title'});out({op:'hudDel',id:'__sub'})},Math.max(300,sec*1000))},
     button(id,t,fn,o={}){id=String(id);H.gui[id]=fn;out({op:'btn',id,text:String(t).slice(0,40),x:o.x??50,y:o.y??85})},
     removeButton:id=>{delete H.gui[id];out({op:'btnDel',id:String(id)})}},
   sound:{beep:(f=440,s=.15,type='sine')=>out({op:'beep',f:+f||440,s:+s||.15,type:String(type)}),play:n=>out({op:'sfx',n:String(n)})},
-  world:{set gravity(v){out({op:'world',k:'gravity',v:+v})},set sky(v){out({op:'world',k:'sky',v:normColor(v)})},get time(){return (Date.now()-T0)/1000}},
+  world:{set fog(v){out({op:'world',k:'fog',v:+v})},set light(v){out({op:'world',k:'light',v:+v})},set gravity(v){out({op:'world',k:'gravity',v:+v})},set sky(v){out({op:'world',k:'sky',v:normColor(v)})},get time(){return (Date.now()-T0)/1000}},
   net:{send:(name,data)=>out({op:'net',name:String(name).slice(0,40),data}),on:(name,fn)=>{H.net[name]=H.net[name]||[];H.net[name].push(fn)}},
-  input:{get isTouch(){return IS_TOUCH_W},onKey:(key,fn)=>H.key.push((k,down)=>{if(down&&k===String(key).toLowerCase())fn()}),
+  input:{get isTouch(){return IS_TOUCH_W},onKeyUp:(key,fn)=>H.keyUp.push((k)=>{if(k===String(key).toLowerCase())fn()}),onKeyDown:(key,fn)=>H.key.push((k,down)=>{if(down&&k===String(key).toLowerCase())fn()}),onKey:(key,fn)=>H.key.push((k,down)=>{if(down&&k===String(key).toLowerCase())fn()}),
     isDown:n=>{n=String(n).toLowerCase();const c=n.length===1&&n>='a'&&n<='z'?'Key'+n.toUpperCase():(n===' '||n==='space')?'Space':/^arrow(up|down|left|right)$/.test(n)?'Arrow'+n.charAt(5).toUpperCase()+n.slice(6):n;return keysDown.has(c)}},
+  lerp:(a,b,t)=>a+(b-a)*t,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),rad:d=>d*Math.PI/180,deg:r=>r*180/Math.PI,round:(n,d=0)=>{const f=Math.pow(10,d);return Math.round(n*f)/f},
+  dist:(a,b)=>{const p=posOf(a),q=posOf(b);return Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2])},
+  choose:a=>a[Math.floor(Math.random()*a.length)],shuffle:a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a},
+  range:(a,b,s=1)=>{if(b===undefined){b=a;a=0}const r=[];for(let i=a;s>0?i<b:i>b;i+=s){r.push(i);if(r.length>10000)break}return r},
+  repeat:(n,fn)=>{for(let i=0;i<Math.min(+n||0,5000);i++)fn(i)},sleep:s=>new Promise(r=>setTimeout(r,(+s||0)*1000)),log:(...a)=>base.print(...a),
+  V3:(x=0,y=0,z=0)=>{const o={x:+x,y:+y,z:+z,add:v=>V3o(o.x+v.x,o.y+v.y,o.z+v.z),sub:v=>V3o(o.x-v.x,o.y-v.y,o.z-v.z),mul:k=>V3o(o.x*k,o.y*k,o.z*k),len:()=>Math.hypot(o.x,o.y,o.z),dist:v=>Math.hypot(o.x-v.x,o.y-v.y,o.z-v.z),norm:()=>{const l=Math.hypot(o.x,o.y,o.z)||1;return V3o(o.x/l,o.y/l,o.z/l)},toArray:()=>[o.x,o.y,o.z]};return o},
+  color:{rgb:(r,g,b)=>'#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(+v||0))).toString(16).padStart(2,'0')).join(''),
+    hsl:(h,s=100,l=50)=>{h=((+h%360)+360)%360;s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return base.color.rgb(f(0)*255,f(8)*255,f(4)*255)},
+    random:()=>base.color.hsl(Math.random()*360,80,55),
+    lerp:(a,b,t)=>{const p=c=>{c=normColor(c);return [1,3,5].map(i=>parseInt(c.slice(i,i+2),16))};const x=p(a),y=p(b);return base.color.rgb(x[0]+(y[0]-x[0])*t,x[1]+(y[1]-x[1])*t,x[2]+(y[2]-x[2])*t)}},
+  timer:{every:(s,fn)=>{const id=setInterval(()=>safe(fn),Math.max(30,(+s||1)*1000));return {cancel:()=>clearInterval(id)}},after:(s,fn)=>{const id=setTimeout(()=>safe(fn),Math.max(0,(+s||0)*1000));return {cancel:()=>clearTimeout(id)}}},
+  storage:{get:(k,d=null)=>store[String(k)]===undefined?d:store[String(k)],set:(k,v)=>{k=String(k).slice(0,40);let s;try{s=JSON.stringify(v)}catch{return}if(s===undefined||s.length>5000)return;store[k]=JSON.parse(s);out({op:'store',k,v:store[k]})},remove:k=>{delete store[String(k)];out({op:'store',k:String(k).slice(0,40),v:null})}},
+  getTagged:t=>[...(tagIdx.get(String(t))||[])].filter(p=>!p._dead),
   items:{define:(id,o={})=>out({op:'item',k:'def',id:String(id).slice(0,20),name:String(o.name||id).slice(0,20),icon:String(o.icon||'📦').slice(0,4),stack:!!o.stack}),
     onUse:(id,fn)=>{if(typeof fn!=='function')return;id=String(id);(H.item[id]=H.item[id]||[]).push(fn)},
     give:(id,n=1)=>out({op:'item',k:'give',id:String(id).slice(0,20),n:+n||1}),take:(id,n=1)=>out({op:'item',k:'take',id:String(id).slice(0,20),n:+n||1}),
@@ -320,27 +365,32 @@ function ev(e){switch(e.k){
   case 'touch':{const p=PM.get(e.part);if(p)for(const f of p._h.touch)safe(f,player);break}
   case 'touchEnd':{const p=PM.get(e.part);if(p)for(const f of p._h.touchEnd)safe(f,player);break}
   case 'click':{const p=PM.get(e.part);if(p)for(const f of p._h.click)safe(f,player);break}
-  case 'key':for(const f of H.key)safe(f,String(e.key).toLowerCase(),!!e.down);break;
+  case 'key':for(const f of H.key)safe(f,String(e.key).toLowerCase(),!!e.down);if(!e.down)for(const f of H.keyUp)safe(f,String(e.key).toLowerCase());break;
   case 'chat':{const pl=pById(e.pid)||player;for(const f of H.chat)safe(f,pl,e.msg);break}
   case 'join':{if(pById(e.id))break;const p=new Player(e.id,e.name,false);players.push(p);for(const f of H.playerAdded)safe(f,p);break}
   case 'leave':{const i=players.findIndex(p=>p.id===e.id);if(i>0){const p=players[i];players.splice(i,1);for(const f of H.playerRemoving)safe(f,p)}break}
   case 'died':for(const f of H.died)safe(f,player);break;
+  case 'respawn':for(const f of H.respawn)safe(f,player);break;
+  case 'jump':for(const f of H.jump)safe(f,player);break;
+  case 'picked':for(const f of H.itemPicked)safe(f,player,e.id);break;
   case 'itemUsed':for(const f of H.itemUsed)safe(f,player,e.id);for(const f of H.item[e.id]||[])safe(f,player);break;
   case 'gui':if(H.gui[e.id])safe(H.gui[e.id],player);break;
   case 'net':for(const f of H.net[e.name]||[])safe(f,e.data,e.from);break;
 }}
+const EASE={linear:a=>a,in:a=>a*a,out:a=>1-(1-a)*(1-a),inout:a=>a*a*(3-2*a),bounce:a=>{const n=7.5625,d=2.75;if(a<1/d)return n*a*a;if(a<2/d)return n*(a-=1.5/d)*a+.75;if(a<2.5/d)return n*(a-=2.25/d)*a+.9375;return n*(a-=2.625/d)*a+.984375},elastic:a=>a===0||a===1?a:Math.pow(2,-10*a)*Math.sin((a*10-.75)*(2*Math.PI/3))+1};
 function tickTweens(dt){for(let i=tweens.length-1;i>=0;i--){const t=tweens[i];if(t.p._dead){tweens.splice(i,1);t.res();continue}
-  t.t+=dt;const a=Math.min(1,t.t/t.dur),s=a*a*(3-2*a);
+  t.t+=dt;const a=Math.min(1,t.t/t.dur),s=t.ease(a);
   for(const k of ['position','size','rotation'])if(t.to[k]){t.p[k].set(t.from[k].map((v,j)=>v+(t.to[k][j]-v)*s))}
   if(t.to.tr!==undefined)t.p.transparency=t.from.tr+(t.to.tr-t.from.tr)*s;
   if(a>=1){tweens.splice(i,1);t.res()}}}
 onmessage=e=>{const m=e.data;
-  if(m.t==='init'){IS_TOUCH_W=!!m.touch;T0=Date.now();for(const d of m.parts)reg(d);player.name=m.name;player.robux=m.robux;
+  if(m.t==='init'){store=m.store&&typeof m.store==='object'?m.store:{};IS_TOUCH_W=!!m.touch;T0=Date.now();for(const d of m.parts)reg(d);player.name=m.name;player.robux=m.robux;
     for(const s of m.scripts)runScript(s);for(const f of H.start)safe(f);flush()}
   else if(m.t==='tick'){keysDown=new Set(m.keys||[]);invNow=m.inv||{};const me=m.me;if(me){player._pos[0]=me.pos[0];player._pos[1]=me.pos[1];player._pos[2]=me.pos[2];player._hp=me.hp;player._maxhp=me.maxHp;player._speed=me.speed;player._jump=me.jump;player.robux=me.robux;
       for(const k in player._raw)delete player._raw[k];Object.assign(player._raw,me.stats||{})}
     if(m.pl)for(const r of m.pl){const p=pById(r.id);if(p){p._pos[0]=r.pos[0];p._pos[1]=r.pos[1];p._pos[2]=r.pos[2];p._hp=r.hp;p.name=r.name;Object.assign(p._raw,r.stats||{})}}
     for(const x of m.ev||[])ev(x);
+    for(const [p,s] of spins){if(p._dead){spins.delete(p);continue}p.rotation.set(p.rotation.x+s[0]*m.dt,p.rotation.y+s[1]*m.dt,p.rotation.z+s[2]*m.dt)}
     tickTweens(m.dt);for(const f of H.update)safe(f,m.dt);flush()}
 };
 </script>
@@ -380,7 +430,11 @@ const badRe=BAD.map(w=>new RegExp([...w].map(c=>c.replace(/[.*+?^${}()|[\]\\]/g,
 function censor(s){let r=String(s);for(const re of badRe)r=r.replace(re,m=>'♡'.repeat(Math.max(2,m.replace(/[\s._\-*~]/g,'').length)));return r}
 
 /* 아이템 정의 */
-const ITEMS={sword:{name:'검',icon:'🗡️',cd:.5},speed:{name:'스피드 코일',icon:'⚡',cd:12},jump:{name:'점프 코일',icon:'🦘',cd:12},dash:{name:'대시',icon:'💨',cd:3},heal:{name:'회복약',icon:'🧪',cd:1,stack:true},bomb:{name:'폭탄',icon:'💣',cd:1.5,stack:true}};
+const ITEMS={sword:{name:'검',icon:'🗡️',kind:'melee',power:25,range:8,cd:.5},speed:{name:'스피드 코일',icon:'⚡',kind:'speed',power:1.8,sec:8,cd:12},jump:{name:'점프 코일',icon:'🦘',kind:'jump',power:1.9,sec:8,cd:12},dash:{name:'대시',icon:'💨',kind:'dash',power:75,cd:3},heal:{name:'회복약',icon:'🧪',kind:'heal',power:50,cd:1,stack:true},bomb:{name:'폭탄',icon:'💣',kind:'bomb',power:40,range:12,cd:1.5,stack:true}};
+const KINDS={melee:'근접 공격 (위력=피해, 범위)',heal:'회복 (위력=회복량)',speed:'스피드 (위력=배수, 지속초)',jump:'점프 (위력=배수, 지속초)',dash:'대시 (위력=속도)',bomb:'폭탄 (위력=피해, 범위)',script:'스크립트용 (효과 없음, 스크립트가 처리)'};
+const allItemDefs=map=>{const o={...ITEMS};for(const i of (map&&map.items)||[])o[i.id]=i;return o};
+function sItem(it){if(!it||typeof it!=='object')return null;const id=String(it.id||'').replace(/[^\w가-힣]/g,'').slice(0,20);if(!id||ITEMS[id])return null;
+  const n=(v,a,b,d)=>clamp(isFinite(+v)?+v:d,a,b);return {id,name:String(it.name||id).slice(0,20),icon:String(it.icon||'📦').slice(0,4),kind:KINDS[it.kind]?it.kind:'script',power:n(it.power,0,1000,25),sec:n(it.sec,0,120,8),cd:n(it.cd,0,120,1),range:n(it.range,1,60,8),stack:!!it.stack}}
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
 if(IS_TOUCH||matchMedia('(pointer:coarse)').matches)document.body.classList.add('touch');
 async function sha256hex(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
@@ -465,7 +519,7 @@ function syncRec(rec){const d=rec.d,o=rec.o;
 function addPartRec(d){const o=buildObj(d);const rec={d,o,k:null,touch:false,click:false,inside:false};updateCache(rec);syncRec(rec);W.group.add(o);W.parts.set(d.id,rec);W.dirty=true;W.ver++;return rec}
 function removePartRec(id){const rec=W.parts.get(id);if(!rec)return;W.group.remove(rec.o);rec.o.traverse(m=>{if(m.isMesh)for(const x of (Array.isArray(m.material)?m.material:[m.material]))x.dispose()});W.parts.delete(id);W.dirty=true;W.ver++}
 function clearWorld(){for(const id of [...W.parts.keys()])removePartRec(id)}
-function applyEnv(){const m=W.map;scene.background=new THREE.Color(m.sky);scene.fog=new THREE.Fog(m.sky,250,1200);G.gravity=m.gravity}
+function applyEnv(){const m=W.map;hemi.intensity=.95;sun.intensity=1.7;scene.background=new THREE.Color(m.sky);scene.fog=new THREE.Fog(m.sky,250,1200);G.gravity=m.gravity}
 function loadWorld(map){clearWorld();W.map=map;for(const [k,t] of Object.entries(map.objs||{})){try{registerObj(k,t)}catch(e){console.warn('OBJ',e)}}for(const d of map.parts)addPartRec(d);applyEnv()}
 
 /* ---- 맵 데이터 ---- */
@@ -476,9 +530,10 @@ function sPart(p,id){if(!p||!TYPES.includes(p.type))return null;
   if(p.type==='obj')o.obj=String(p.obj||'');if(p.type==='item'){o.item=String(p.item||'sword').replace(/[^\w가-힣]/g,'').slice(0,20)||'sword';o.collide=false}return o}
 function sanitizeMap(m){
   if(!m||typeof m!=='object'||m.format!=='blockworld')throw new Error('블록월드 맵 파일이 아니에요');
-  const out={format:'blockworld',v:1,name:String(m.name||'이름 없는 맵').slice(0,40),sky:hex(m.sky,'#87ceeb'),gravity:clamp(+m.gravity||196.2,5,1000),pvp:!!m.pvp,startItems:String(m.startItems||'').replace(/[^\w가-힣,]/g,'').slice(0,120),parts:[],objs:{},scripts:[]};
+  const out={format:'blockworld',v:1,name:String(m.name||'이름 없는 맵').slice(0,40),sky:hex(m.sky,'#87ceeb'),gravity:clamp(+m.gravity||196.2,5,1000),pvp:!!m.pvp,allowOwned:m.allowOwned!==false,itemsOff:(Array.isArray(m.itemsOff)?m.itemsOff:[]).slice(0,80).map(x=>String(x).replace(/[^\w가-힣]/g,'').slice(0,20)).filter(Boolean),items:[],startItems:String(m.startItems||'').replace(/[^\w가-힣,]/g,'').slice(0,120),parts:[],objs:{},scripts:[]};
   const keyMap={};
   for(const [k,t] of Object.entries(m.objs||{})){const pk=sObj(t);if(pk){const nk=objKey(pk);keyMap[k]=nk;out.objs[nk]=pk}}
+  {const seen=new Set();for(const it of (Array.isArray(m.items)?m.items:[]).slice(0,30)){const s=sItem(it);if(s&&!seen.has(s.id)){seen.add(s.id);out.items.push(s)}}}
   const idMap={};
   for(const p of (Array.isArray(m.parts)?m.parts:[]).slice(0,5000)){const id=newId();const d=sPart(p,id);if(!d)continue;
     if(d.type==='obj'){d.obj=keyMap[d.obj];if(!d.obj)continue}
@@ -490,7 +545,7 @@ function sanitizeMap(m){
 function parseMapText(text){let m;try{m=JSON.parse(text)}catch{throw new Error('txt 내용을 읽을 수 없어요')}return sanitizeMap(m)}
 function newPart(type,props={}){const defs={box:[[4,4,4],'#a3a2a5'],sphere:[[4,4,4],'#e8b04a'],cylinder:[[4,6,4],'#5aa0d8'],cone:[[4,5,4],'#d85a5a'],wedge:[[4,4,4],'#7ac36a'],spawn:[[6,1,6],'#9aa0a6'],obj:[[4,4,4],'#d0d0d0'],item:[[2,2,2],'#ffd54a']};
   const [size,color]=defs[type];return {id:newId(),name:TNAME[type],type,...(type==='item'?{item:'sword',collide:false}:{}),pos:[0,2,0],size:size.slice(),rot:[0,0,0],color,tr:0,collide:true,visible:true,...props}}
-function newMap(name='새 맵'){const m={format:'blockworld',v:1,name,sky:'#87ceeb',gravity:196.2,pvp:true,startItems:'',parts:[],objs:{},scripts:[]};
+function newMap(name='새 맵'){const m={format:'blockworld',v:1,name,sky:'#87ceeb',gravity:196.2,pvp:true,allowOwned:true,itemsOff:[],items:[],startItems:'',parts:[],objs:{},scripts:[]};
   m.parts.push(newPart('box',{name:'베이스플레이트',pos:[0,-.5,0],size:[300,1,300],color:'#6f8a5c'}));
   m.parts.push(newPart('spawn',{name:'스폰',pos:[0,.5,0],size:[8,1,8],color:'#b9bdc2'}));return m}
 function demoMap(){const m=newMap('예제 맵');
@@ -583,8 +638,8 @@ function pushUndo(){ED.undo.push(JSON.stringify(ED.map.parts));if(ED.undo.length
 function doUndo(){if(!ED.undo.length)return toast('되돌릴 작업이 없어요');ED.map.parts=JSON.parse(ED.undo.pop());select(null);loadWorld(ED.map);renderExplorer();renderScripts()}
 function edOpen(map,mapId=null){ED.map=map;ED.mapId=mapId;ED.undo=[];ED.sel=null;loadWorld(map);show('editor');tc.enabled=true;
   ED.pos.set(0,18,34);ED.yaw=0;ED.pitch=-.45;setTcMode('translate');applySnap();select(null);
-  $('edName').value=map.name;$('mapSky').value=map.sky;$('mapGrav').value=map.gravity;$('mapPub').checked=map.published!==false;$('mapPvp').checked=!!map.pvp;$('mapStart').value=map.startItems||'';
-  ED.scSel=map.scripts[0]?map.scripts[0].id:null;renderExplorer();renderScripts();updateMapInfo()}
+  $('edName').value=map.name;$('mapSky').value=map.sky;$('mapGrav').value=map.gravity;$('mapPub').checked=map.published!==false;$('mapPvp').checked=!!map.pvp;
+  ED.scSel=map.scripts[0]?map.scripts[0].id:null;renderItemsTab();renderExplorer();renderScripts();updateMapInfo()}
 function updateMapInfo(){$('mapInfo').textContent=ED.mapId?'온라인 맵 ID: '+ED.mapId:'아직 온라인에 저장되지 않은 맵이에요.'}
 function select(id){ED.sel=id;const rec=id&&W.parts.get(id);
   if(rec){tc.attach(rec.o);tc.visible=true;bh.visible=true;bh.setFromObject(rec.o)}else{tc.detach();tc.visible=false;bh.visible=false;ED.sel=null}
@@ -596,7 +651,7 @@ function renderProps(){const box=$('propBox'),rec=ED.sel&&W.parts.get(ED.sel);
   const d=rec.d;
   box.innerHTML=`<div class="fr"><label>이름</label><input type="text" data-k="name" value="${escHtml(d.name)}"></div>
   <div class="fr"><label>종류</label><span class="dim">${TNAME[d.type]}</span></div>
-  ${d.type==='item'?`<div class="fr"><label>아이템</label><select data-k="item" style="flex:1">${Object.entries(ITEMS).map(([k,v])=>`<option value="${k}" ${d.item===k?'selected':''}>${v.icon} ${v.name} (${k})</option>`).join('')}${ITEMS[d.item]?'':`<option selected>${escHtml(d.item||'')}</option>`}</select></div><div class="fr"><label>직접입력</label><input type="text" data-k="item" value="${escHtml(d.item||'')}" placeholder="스크립트로 만든 아이템 id" style="flex:1"></div>`:''}
+  ${d.type==='item'?`<div class="fr"><label>아이템</label><select data-k="item" style="flex:1">${Object.entries(allItemDefs(ED.map)).map(([k,v])=>`<option value="${k}" ${d.item===k?'selected':''}>${escHtml(v.icon)} ${escHtml(v.name)} (${k})</option>`).join('')}${allItemDefs(ED.map)[d.item]?'':`<option selected>${escHtml(d.item||'')}</option>`}</select></div><div class="fr"><label>직접입력</label><input type="text" data-k="item" value="${escHtml(d.item||'')}" placeholder="스크립트로 만든 아이템 id" style="flex:1"></div>`:''}
   ${row3('위치','pos',d.pos,.5)}${row3('회전°','rot',d.rot,5)}${row3('크기','size',d.size,.5)}
   <div class="fr"><label>색상</label><input type="color" data-k="color" value="${d.color}"></div>
   <div class="fr"><label>투명도</label><input type="range" min="0" max="1" step=".05" data-k="tr" value="${d.tr}" style="flex:1"></div>
@@ -652,7 +707,6 @@ $('mapSky').oninput=e=>{ED.map.sky=e.target.value;applyEnv()};
 $('mapGrav').oninput=e=>{ED.map.gravity=clamp(+e.target.value||196.2,5,1000)};
 $('mapPub').onchange=e=>{ED.map.published=e.target.checked};
 $('mapPvp').onchange=e=>{ED.map.pvp=e.target.checked};
-$('mapStart').oninput=e=>{ED.map.startItems=e.target.value.replace(/[^\w가-힣,]/g,'').slice(0,120)};
 $('edBack').onclick=()=>{if(confirm('홈으로 나갈까요? 저장하지 않은 변경은 사라져요.')){leaveEditor()}};
 function leaveEditor(){tc.detach();tc.enabled=false;tc.visible=false;bh.visible=false;clearWorld();show('home');loadMaps()}
 $('edSaveTxt').onclick=()=>{const t=JSON.stringify(ED.map);download((ED.map.name||'map')+'.txt',t);toast('txt로 다운로드했어요 ('+Math.round(t.length/1024)+'KB)')};
@@ -664,7 +718,34 @@ $('edSaveOnline').onclick=async()=>{
   if(res.error)return toast('저장 실패: '+res.error.message);ED.mapId=res.data;updateMapInfo();toast('온라인에 저장했어요!')};
 $('edPlay').onclick=()=>{tc.detach();tc.visible=false;bh.visible=false;ED.sel=null;startGame(structuredClone(ED.map),{testing:true})};
 document.querySelectorAll('.tabs [data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs [data-tab]').forEach(x=>x.classList.toggle('on',x===b));
-  for(const t of ['props','scripts','map'])$('tab'+t[0].toUpperCase()+t.slice(1)).classList.toggle('hide',t!==b.dataset.tab)});
+  for(const t of ['props','scripts','items','map'])$('tab'+t[0].toUpperCase()+t.slice(1)).classList.toggle('hide',t!==b.dataset.tab);if(b.dataset.tab==='items')renderItemsTab()});
+
+/* ---- 아이템 탭 ---- */
+function renderItemsTab(){const m=ED.map;if(!m)return;const box=$('tabItems');if(!box)return;
+  const off=new Set(m.itemsOff||[]),start=new Set((m.startItems||'').split(',').filter(Boolean)),defs=allItemDefs(m);
+  let h=`<p class="dim" style="font-size:12px;margin-top:0">이 맵에서 쓸 아이템을 고르세요. 체크를 끄면 그 아이템은 이 맵에서 얻거나 쓸 수 없어요.</p>
+  <div class="fr"><label style="width:auto"><input type="checkbox" id="itOwned" ${m.allowOwned!==false?'checked':''}> 상점에서 산 아이템도 쓰게 하기</label></div>
+  <table style="width:100%;font-size:13px;border-collapse:collapse"><tr style="color:var(--dim)"><th align="left">아이템</th><th>사용</th><th>시작 지급</th></tr>`+
+  Object.entries(defs).map(([id,d])=>`<tr><td>${escHtml(d.icon)} ${escHtml(d.name)}</td><td align="center"><input type="checkbox" data-on="${id}" ${off.has(id)?'':'checked'}></td><td align="center"><input type="checkbox" data-st="${id}" ${start.has(id)?'checked':''}></td></tr>`).join('')+
+  `</table><h4 style="margin:14px 0 6px">내가 만든 아이템 (${(m.items||[]).length}/30)</h4>`;
+  (m.items||[]).forEach((it,i)=>{h+=`<div class="card" style="margin-bottom:8px;padding:8px">
+    <div class="fr"><label>이름</label><input type="text" data-i="${i}" data-f="name" maxlength="20" value="${escHtml(it.name)}"><input type="text" data-i="${i}" data-f="icon" maxlength="4" value="${escHtml(it.icon)}" style="width:46px" title="아이콘(이모지)"></div>
+    <div class="fr"><label>종류</label><select data-i="${i}" data-f="kind" style="flex:1">${Object.entries(KINDS).map(([k,v])=>`<option value="${k}" ${it.kind===k?'selected':''}>${v}</option>`).join('')}</select></div>
+    <div class="r3"><label>위력</label><input type="number" data-i="${i}" data-f="power" value="${it.power}" step="1"><label>지속초</label><input type="number" data-i="${i}" data-f="sec" value="${it.sec}" step="1"></div>
+    <div class="r3"><label>쿨타임</label><input type="number" data-i="${i}" data-f="cd" value="${it.cd}" step=".5"><label>범위</label><input type="number" data-i="${i}" data-f="range" value="${it.range}" step="1"></div>
+    <div class="fr"><label style="width:auto"><input type="checkbox" data-i="${i}" data-f="stack" ${it.stack?'checked':''}> 소모품 (쓰면 1개씩 줄어듦, 개수 쌓임)</label></div>
+    <div class="fr"><span class="dim" style="font-size:11px;flex:1">id: <b>${it.id}</b> → items.give("${it.id}") · items.onUse("${it.id}",p=>{})</span><button class="red" data-del="${i}">삭제</button></div></div>`});
+  h+=`<button id="itAdd" ${(m.items||[]).length>=30?'disabled':''}>＋ 새 아이템 만들기</button>`;box.innerHTML=h}
+$('tabItems').addEventListener('change',e=>{const m=ED.map,t=e.target;if(!m)return;
+  if(t.id==='itOwned'){m.allowOwned=t.checked;return}
+  if(t.dataset.on){const s=new Set(m.itemsOff||[]);t.checked?s.delete(t.dataset.on):s.add(t.dataset.on);m.itemsOff=[...s];return}
+  if(t.dataset.st){const s=new Set((m.startItems||'').split(',').filter(Boolean));t.checked?s.add(t.dataset.st):s.delete(t.dataset.st);m.startItems=[...s].join(',');return}
+  if(t.dataset.f){const it=m.items[+t.dataset.i];if(!it)return;const f=t.dataset.f;
+    if(f==='stack')it.stack=t.checked;else if(['power','sec','cd','range'].includes(f)){const v=+t.value;if(isFinite(v))it[f]=v}else it[f]=t.value.slice(f==='icon'?4:20);
+    if(f==='name'||f==='icon'||f==='kind'){renderItemsTab();if(ED.sel)renderProps()}}});
+$('tabItems').addEventListener('click',e=>{const m=ED.map,t=e.target.closest('button');if(!t||!m)return;
+  if(t.id==='itAdd'){m.items=m.items||[];if(m.items.length>=30)return;let n=1;while(m.items.some(i=>i.id==='item'+n))n++;m.items.push({id:'item'+n,name:'새 아이템 '+n,icon:'🎁',kind:'heal',power:30,sec:8,cd:1,range:8,stack:true});renderItemsTab()}
+  else if(t.dataset.del){const it=m.items[+t.dataset.del];if(!it||!confirm('"'+it.name+'" 아이템을 삭제할까요? (맵의 아이템 박스는 그대로 남아요)'))return;m.items.splice(+t.dataset.del,1);m.itemsOff=(m.itemsOff||[]).filter(x=>x!==it.id);m.startItems=(m.startItems||'').split(',').filter(x=>x&&x!==it.id).join(',');renderItemsTab()}});
 
 /* ---- 스크립트 에디터 ---- */
 const TPL={
@@ -720,10 +801,42 @@ const HELP=`스크립트는 JavaScript(async)로 작성하고, 격리된 Worker 
 
 ■ 아이템 (화면 아래 핫바, 숫자키 1~8 선택 · F/클릭/모바일 '사용' 버튼으로 사용)
   기본: sword(검) speed(스피드 코일) jump(점프 코일) dash(대시) heal(회복약) bomb(폭탄)
-  파트 '아이템 박스'를 맵에 놓으면 닿을 때 줍고 15초 뒤 다시 생겨요. 맵 설정에서 시작 아이템/PvP 를 정할 수 있어요.
+  파트 '아이템 박스'를 맵에 놓으면 닿을 때 줍고 15초 뒤 다시 생겨요.
+  에디터 '아이템' 탭: 이 맵에서 쓸 아이템 체크 · 시작 지급 · 직접 아이템 만들기(근접/회복/스피드/점프/대시/폭탄/스크립트용)
   items.give("sword") / items.give("heal",3) / items.take(id) / items.has(id) / items.count(id) / items.list()
+  p.giveItem(id,n) p.takeItem(id) p.hasItem(id)   on("itemPicked",(p,id)=>{})
   items.define("마법봉",{name:"마법봉",icon:"🪄",stack:false})   items.onUse("마법봉",p=>{ ... })
   on("itemUsed",(p,id)=>{})   input.isTouch (모바일이면 true)
+
+■ 파트 추가 기능
+  part.rotate(dx,dy,dz)  part.moveBy(dx,dy,dz)  part.moveTo(x,y,z)  part.lookAt(x,y,z | part | player)
+  part.spin(x,y,z)  (초당 도 단위로 계속 회전, spin(0,0,0)이면 멈춤)   part.distanceTo(part|player|[x,y,z])
+  part.addTag("적") part.removeTag("적") part.hasTag("적") part.tags     getTagged("적") (태그로 파트 모으기)
+  part.fade(초) (서서히 사라지고 꺼짐)   part.flash("#fff",0.2) (잠깐 색 바꿨다 복구)
+  part.tween({...}, 초, "linear"|"in"|"out"|"inout"|"bounce"|"elastic")   ← 세 번째 값이 움직임 곡선
+
+■ 플레이어 추가 기능
+  p.launch(x,y,z) (날려 보내기)   p.frozen = true (못 움직이게)   p.walkSpeed (= speed)
+  p.teleportTo("파트이름" | part)   p.distanceTo(part|player|[x,y,z])
+  p.cameraDistance = 30 (카메라 거리)   p.fov = 80 (시야각)
+  players.byName("이름")  players.random()  players.others (나를 뺀 플레이어)
+
+■ 이벤트 추가
+  on("respawn",p=>{})  on("jump",p=>{})  on("itemPicked",(p,id)=>{})  on("itemUsed",(p,id)=>{})
+  input.onKeyDown("q",()=>{})  input.onKeyUp("q",()=>{})
+
+■ 도구 모음
+  lerp(a,b,t) clamp(v,min,max) round(n,자릿수) dist(a,b) rad(도) deg(라디안)
+  choose([..]) shuffle([..]) range(5) / range(1,10,2) repeat(3,i=>{..}) sleep(초)
+  V3(x,y,z) → .add(v) .sub(v) .mul(k) .len() .dist(v) .norm()
+  color.rgb(255,0,0)  color.hsl(120,100,50)  color.random()  color.lerp("#f00","#00f",0.5)
+  timer.every(초,fn) → {cancel()}   timer.after(초,fn) → {cancel()}
+  storage.set("최고점수",123)  storage.get("최고점수",0)  storage.remove(k)   (이 브라우저에 맵별로 저장돼요)
+
+■ 화면(GUI) 추가
+  gui.bar("hp",값,최대,{x:50,y:92,w:30,color:"#4c4",label:"HP"})   gui.barRemove("hp")
+  gui.title("큰 제목","작은 글씨",3)
+  world.fog = 거리   world.light = 밝기(0~3)
 
 ■ 기타
   wait(초) (await 가능)   random(a,b)   print(...)   setInterval/setTimeout
@@ -781,12 +894,13 @@ const G={active:false,testing:false,online:false,mapId:null,gravity:196.2,rmb:fa
   keys:new Set(),evq:[],solid:[],touchRecs:[],remotes:new Map(),worker:null,room:null,
   cam:{yaw:0,pitch:.35,dist:14,tdist:14},
   me:{pos:new THREE.Vector3(),vel:new THREE.Vector3(),face:0,grounded:false,hp:100,maxHp:100,speed:16,jump:50,stats:{},standing:null,stInv:new THREE.Matrix4(),dead:false,walkT:0,av:null,tag:null,lastSend:0,lastSpawnY:0},
-  inv:[],sel:0,itemCd:{},custom:{},pvp:false,buff:{speed:0,jump:0},base:{speed:16,jump:50},fx:[],swing:0,held:null,hitAt:[],joy:{x:0,y:0},itemRecs:[],
+  off:new Set(),allowOwned:true,inv:[],sel:0,itemCd:{},custom:{},pvp:false,buff:{speed:0,jump:0},base:{speed:16,jump:50},fx:[],swing:0,held:null,hitAt:[],joy:{x:0,y:0},itemRecs:[],
   frame:0,sortT:0,plT:0,hudEls:new Map(),netAcc:0,netLast:'',netAt:0,lastChat:0,chatMsgs:[]};
 const _c=new THREE.Vector3(),_push=new THREE.Vector3(),_n=new THREE.Vector3(),_pc=new THREE.Vector3(),_v=new THREE.Vector3();
 const camRay=new THREE.Raycaster();
 
 /* 오디오 */
+G.store={};
 let actx=null;
 function beep(f,s=.15,type='sine',vol=.06,delay=0){if(G.mute)return;try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const t=actx.currentTime+delay,o=actx.createOscillator(),g=actx.createGain();
   o.type=['sine','square','sawtooth','triangle'].includes(type)?type:'sine';o.frequency.value=clamp(f,40,4000);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+clamp(s,.02,2));o.connect(g).connect(actx.destination);o.start(t);o.stop(t+clamp(s,.02,2)+.02)}catch{}}
@@ -812,7 +926,7 @@ async function startGame(map,{testing=false,mapId=null}={}){
   G.active=true;G.testing=testing;G.mapId=mapId;G.online=false;
   tc.detach();tc.enabled=false;tc.visible=false;bh.visible=false;
   loadWorld(map);show('game');G.menu=false;G.keys.clear();G.evq.length=0;G.remotes.clear();$('chatLog').innerHTML='';$('tags').innerHTML='';$('guiLayer').innerHTML='';G.hudEls.clear();
-  const m=G.me;m.stats={};m.hp=m.maxHp=100;m.speed=16;m.jump=50;m.dead=false;m.seated=false;G.pvp=!!map.pvp;G.custom={};G.held=null;for(const f of G.fx)scene.remove(f.m);G.fx=[];G.buff.speed=G.buff.jump=0;
+  const m=G.me;m.stats={};m.hp=m.maxHp=100;m.speed=16;m.jump=50;m.dead=false;m.seated=false;G.pvp=!!map.pvp;G.custom=Object.fromEntries((map.items||[]).map(i=>[i.id,i]));G.off=new Set(map.itemsOff||[]);G.allowOwned=map.allowOwned!==false;camera.fov=65;camera.updateProjectionMatrix();m.frozen=false;G.held=null;for(const f of G.fx)scene.remove(f.m);G.fx=[];G.buff.speed=G.buff.jump=0;
   const av=myAvatar();m.av=makeAvatar(av,myObjText());scene.add(m.av.root);m.tag=makeTag(myName());
   G.cam.yaw=0;G.cam.pitch=.35;G.cam.dist=G.cam.tdist=14;
   respawn(true);rebuildLists();setHud();renderPlist();
@@ -831,16 +945,19 @@ function leaveGame(){const testing=G.testing;stopGame();G.menu=false;$('esc').cl
 function rebuildLists(){G.itemRecs=[...W.parts.values()].filter(r=>r.d.type==='item');G.solid=[...W.parts.values()].filter(r=>r.d.collide&&r.d.visible!==false);G.touchRecs=[...W.parts.values()].filter(r=>r.touch);W.dirty=false}
 function respawn(first=false){const m=G.me;initItems();const sp=W.map.parts.filter(p=>p.type==='spawn');
   let x=0,y=6,z=0;if(sp.length){const s=sp[Math.floor(Math.random()*sp.length)];x=s.pos[0]+(Math.random()-.5)*Math.max(0,s.size[0]-3);z=s.pos[2]+(Math.random()-.5)*Math.max(0,s.size[2]-3);y=s.pos[1]+s.size[1]/2+.2}
+  if(!first)G.evq.push({k:'respawn'});
   m.pos.set(x,y,z);m.vel.set(0,0,0);m.hp=m.maxHp;m.dead=false;m.seated=false;m.standing=null;if(m.av)m.av.root.visible=true;setHud();
   for(const r of W.parts.values())r.inside=false}
 function die(){const m=G.me;if(m.dead)return;m.dead=true;m.hp=0;setHud();if(m.av)m.av.root.visible=false;G.evq.push({k:'died'});addChat(null,'쓰러졌어요… 잠시 후 리스폰','sys');setTimeout(()=>{if(G.active&&G.me.dead)respawn()},2000)}
 
+const storeKey=()=>'bw_store:'+(G.mapId||(W.map&&W.map.name)||'local');
 /* ---- 워커 ---- */
 function startWorker(map){
   const url=URL.createObjectURL(new Blob([$('workerSrc').textContent],{type:'text/javascript'}));
   const w=new Worker(url);URL.revokeObjectURL(url);G.worker=w;
   w.onmessage=onWorkerMsg;w.onerror=e=>{addChat(null,'스크립트 오류: '+e.message,'err')};
-  w.postMessage({t:'init',name:myName(),robux:U.profile?Number(U.profile.robux):0,
+  try{G.store=JSON.parse(localStorage.getItem(storeKey())||'{}')||{}}catch{G.store={}}
+  w.postMessage({t:'init',store:G.store,name:myName(),robux:U.profile?Number(U.profile.robux):0,
     touch:document.body.classList.contains('touch'),
     parts:map.parts.map(d=>({id:d.id,name:d.name,type:d.type,pos:d.pos.slice(),size:d.size.slice(),rot:d.rot.slice(),color:d.color,tr:d.tr,collide:d.collide,visible:d.visible})),
     scripts:map.scripts.map(s=>({name:s.name,code:s.code,target:s.target}))})}
@@ -873,9 +990,18 @@ function runCmd(c){if(!c||typeof c!=='object')return;const me=G.me;
     case 'cam':if(typeof c.v==='number'&&isFinite(c.v))G.cam.yaw=c.v*DEG;break;
     case 'seat':me.seated=c.v===true;if(me.seated){me.vel.set(0,0,0)}break;
     case 'face':if(typeof c.v==='number'&&isFinite(c.v))me.face=c.v*DEG+Math.PI;break;
-    case 'say':if(typeof c.v==='string')localSay(c.v);break}break;
+    case 'say':if(typeof c.v==='string')localSay(c.v);break;
+    case 'freeze':me.frozen=c.v===true;if(me.frozen){me.vel.x=me.vel.z=0}break;
+    case 'camdist':if(typeof c.v==='number'&&isFinite(c.v))G.cam.tdist=clamp(c.v,2,60);break;
+    case 'fov':if(typeof c.v==='number'&&isFinite(c.v)){camera.fov=clamp(c.v,30,110);camera.updateProjectionMatrix()}break;
+    case 'vel':if(v3ok(c.v)){me.vel.x+=clamp(c.v[0],-200,200);me.vel.y+=clamp(c.v[1],-200,200);me.vel.z+=clamp(c.v[2],-200,200);if(c.v[1]>0){me.grounded=false;me.standing=null}}break}break;
+  case 'store':{if(typeof c.k!=='string')break;if(c.v===null)delete G.store[c.k];else if(Object.keys(G.store).length<40||c.k in G.store)G.store[c.k]=c.v;
+    try{const s=JSON.stringify(G.store);if(s.length<20000)localStorage.setItem(storeKey(),s)}catch{}break}
+  case 'bar':{if(typeof c.id!=='string')break;const key='tbar_'+c.id;let el=G.hudEls.get(key);if(!el){if(G.hudEls.size>40)break;el=document.createElement('div');el.className='gbar';el.innerHTML='<i></i><b></b>';$('guiLayer').appendChild(el);G.hudEls.set(key,el)}
+    const mx=Math.max(1e-6,+c.max||100),f=clamp((+c.v||0)/mx,0,1);el.style.left=clamp(+c.x||0,0,100)+'%';el.style.top=clamp(+c.y||0,0,100)+'%';el.style.width=clamp(+c.w||30,5,90)+'%';
+    const i=el.firstChild;i.style.width=(f*100)+'%';i.style.background=/^#[0-9a-f]{3,8}$/i.test(c.color)?c.color:'#4c4';el.lastChild.textContent=(typeof c.label==='string'&&c.label?c.label+' ':'')+Math.round(+c.v||0)+'/'+Math.round(mx);break}
   case 'stat':if(typeof c.k==='string'&&c.k.length<20&&typeof c.v==='number'&&Object.keys(me.stats).length<8+1){me.stats[c.k.slice(0,16)]=Math.round(c.v*100)/100;renderPlist()}break;
-  case 'world':if(c.k==='gravity'&&typeof c.v==='number')G.gravity=clamp(c.v,5,1000);else if(c.k==='sky'&&typeof c.v==='string'){W.map.sky=hex(c.v,W.map.sky);applyEnv();G.gravity=G.gravity}break;
+  case 'world':if(c.k==='fog'&&typeof c.v==='number'&&scene.fog)scene.fog.far=clamp(c.v,50,5000);else if(c.k==='light'&&typeof c.v==='number'){const v=clamp(c.v,0,3);hemi.intensity=.95*v;sun.intensity=1.7*v}else if(c.k==='gravity'&&typeof c.v==='number')G.gravity=clamp(c.v,5,1000);else if(c.k==='sky'&&typeof c.v==='string'){W.map.sky=hex(c.v,W.map.sky);applyEnv();G.gravity=G.gravity}break;
   case 'msg':if(typeof c.text==='string')toast(c.text,clamp(+c.sec||3,.5,10));break;
   case 'chat':if(typeof c.text==='string')addChat(null,c.text.slice(0,200),'sys');break;
   case 'hud':{if(typeof c.id!=='string'||typeof c.text!=='string')break;let el=G.hudEls.get('t'+c.id);if(!el){if(G.hudEls.size>40)break;el=document.createElement('div');el.className='gt';$('guiLayer').appendChild(el);G.hudEls.set('t'+c.id,el)}
@@ -885,7 +1011,7 @@ function runCmd(c){if(!c||typeof c!=='object')return;const me=G.me;
     el.textContent=c.text;el.style.left=clamp(+c.x||0,0,100)+'%';el.style.top=clamp(+c.y||0,0,100)+'%';break}
   case 'btnDel':{const el=G.hudEls.get('b'+c.id);if(el){el.remove();G.hudEls.delete('b'+c.id)}break}
   case 'item':{const id=String(c.id||'');if(!/^[\w가-힣]{1,20}$/.test(id))break;
-    if(c.k==='def'){if(Object.keys(G.custom).length<30)G.custom[id]={name:String(c.name||id).slice(0,20),icon:String(c.icon||'📦').slice(0,4),stack:!!c.stack,cd:.3};renderHotbar()}
+    if(c.k==='def'){if(Object.keys(G.custom).length<30)if(!ITEMS[id]&&!G.custom[id])G.custom[id]={name:String(c.name||id).slice(0,20),icon:String(c.icon||'📦').slice(0,4),kind:'script',stack:!!c.stack,cd:.3};renderHotbar()}
     else if(c.k==='give')giveItem(id,clamp(Math.floor(+c.n||1),1,99));else if(c.k==='take')takeItem(id,clamp(Math.floor(+c.n||1),1,99));break}
   case 'beep':beep(+c.f||440,+c.s||.15,String(c.type));break;
   case 'sfx':sfx(String(c.n));break;
@@ -894,11 +1020,11 @@ function runCmd(c){if(!c||typeof c!=='object')return;const me=G.me;
     if(G.room&&G.online)G.room.send({type:'broadcast',event:'net',payload:{k:SESSION,name:c.name.slice(0,40),data:c.data===undefined?null:c.data}});break}}}
 
 /* ---- 아이템 ---- */
-const itemDef=id=>ITEMS[id]||G.custom[id]||{name:id,icon:'📦',cd:.3};
+const itemDef=id=>ITEMS[id]||G.custom[id]||{name:id,icon:'📦',kind:'script',cd:.3};
 function initItems(){const m=G.me;if(G.buff.speed>0)m.speed=G.base.speed;if(G.buff.jump>0)m.jump=G.base.jump;G.buff.speed=G.buff.jump=0;
-  G.inv=[];G.sel=0;G.itemCd={};const si=(W.map&&W.map.startItems||'').split(',').filter(Boolean);for(const id of si.slice(0,8))if(ITEMS[id]||/^[\w가-힣]{1,20}$/.test(id))giveItem(id,1,true);
-  if(U.user)for(const s of SHOP)if(s.type==='tool'&&(U.owned.has(s.id)||U.isAdmin))giveItem(s.val,1,true);renderHotbar()}
-function giveItem(id,n=1,quiet=false){const d=itemDef(id);const s=G.inv.find(x=>x.id===id);
+  G.inv=[];G.sel=0;G.itemCd={};const si=(W.map&&W.map.startItems||'').split(',').filter(Boolean);for(const id of si.slice(0,8))if(ITEMS[id]||G.custom[id])giveItem(id,1,true);
+  if(U.user&&G.allowOwned)for(const s of SHOP)if(s.type==='tool'&&(U.owned.has(s.id)||U.isAdmin))giveItem(s.val,1,true);renderHotbar()}
+function giveItem(id,n=1,quiet=false){if(G.off.has(id)){if(!quiet)toast('이 맵에서는 쓸 수 없는 아이템이에요',1.5);return}const d=itemDef(id);const s=G.inv.find(x=>x.id===id);
   if(s){if(d.stack)s.n=Math.min(99,s.n+n);else return}else{if(G.inv.length>=8)return toast('가방이 가득 찼어요');G.inv.push({id,n:d.stack?n:1})}
   if(!quiet){toast(d.icon+' '+d.name+' 획득!',1.5);sfx('coin')}renderHotbar()}
 function takeItem(id,n=1){const i=G.inv.findIndex(x=>x.id===id);if(i<0)return;const s=G.inv[i];s.n-=n;if(s.n<=0){G.inv.splice(i,1);if(G.sel>=G.inv.length)G.sel=Math.max(0,G.inv.length-1)}renderHotbar()}
@@ -909,23 +1035,24 @@ function renderHotbar(){const hb=$('hotbar');if(!hb)return;hb.innerHTML='';
 function selectSlot(i){if(i<0||i>=G.inv.length)return;G.sel=i;renderHotbar()}
 const fwdDir=()=>{const f=G.me.face;return new THREE.Vector3(Math.sin(f),0,Math.cos(f))};
 function sendHit(r,dmg){if(G.room&&G.online)G.room.send({type:'broadcast',event:'hit',payload:{k:SESSION,to:r.key,dmg}})}
-function explode(p,fromMe){const mt=new THREE.MeshBasicMaterial({color:0xff9a2a,transparent:true,opacity:.7});const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),mt);mesh.position.copy(p);scene.add(mesh);G.fx.push({m:mesh,t:0,max:12});
-  if(fromMe){if(G.pvp)for(const r of G.remotes.values())if(r.av&&r.av.root.position.distanceTo(p)<12)sendHit(r,40)}
-  const m=G.me;const d=m.pos.distanceTo(p);if(d<14){const dir=m.pos.clone().sub(p);dir.y=Math.max(.4,dir.y);dir.normalize();m.vel.addScaledVector(dir,60*(1-d/14));m.grounded=false;m.standing=null}}
+function explode(p,fromMe,rg=12,dmg=40){const mt=new THREE.MeshBasicMaterial({color:0xff9a2a,transparent:true,opacity:.7});const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),mt);mesh.position.copy(p);scene.add(mesh);G.fx.push({m:mesh,t:0,max:rg});
+  if(fromMe){if(G.pvp)for(const r of G.remotes.values())if(r.av&&r.av.root.position.distanceTo(p)<rg)sendHit(r,dmg)}
+  const m=G.me;const d=m.pos.distanceTo(p);if(d<rg+2){const dir=m.pos.clone().sub(p);dir.y=Math.max(.4,dir.y);dir.normalize();m.vel.addScaledVector(dir,60*(1-d/(rg+2)));m.grounded=false;m.standing=null}}
 function useItem(){const m=G.me;if(!G.active||m.dead||G.menu)return;const s=G.inv[G.sel];if(!s)return;const d=itemDef(s.id),now=performance.now()/1000;
-  if((G.itemCd[s.id]||0)>now)return;G.itemCd[s.id]=now+(d.cd??.3);let broadcast=true;
-  switch(s.id){
-   case 'sword':{G.swing=.3;sfx('hit');if(!G.pvp)toast('이 맵은 PvP가 꺼져 있어요',1.5);else{const f=fwdDir();let best=null,bd=8;for(const r of G.remotes.values()){if(!r.av||r.hp<=0)continue;const v=r.av.root.position.clone().sub(m.pos);v.y=0;const dist=v.length();if(dist<bd&&(dist<2||v.normalize().dot(f)>.3)){bd=dist;best=r}}if(best)sendHit(best,25)}break}
-   case 'speed':if(G.buff.speed<=0)G.base.speed=m.speed;m.speed=G.base.speed*1.8;G.buff.speed=8;toast('⚡ 스피드 UP!',1.5);beep(700,.15,'triangle');break;
-   case 'jump':if(G.buff.jump<=0)G.base.jump=m.jump;m.jump=G.base.jump*1.9;G.buff.jump=8;toast('🦘 점프 UP!',1.5);beep(500,.15,'triangle');break;
-   case 'dash':{const f=fwdDir();m.vel.x=f.x*75;m.vel.z=f.z*75;if(m.vel.y<12)m.vel.y=12;m.grounded=false;m.standing=null;beep(300,.2,'sawtooth');break}
-   case 'heal':if(m.hp>=m.maxHp){G.itemCd[s.id]=0;broadcast=false;toast('체력이 가득이에요',1.2);return}m.hp=Math.min(m.maxHp,m.hp+50);setHud();sfx('coin');takeItem('heal',1);break;
-   case 'bomb':{const p=m.pos.clone().addScaledVector(fwdDir(),10);p.y+=1.5;explode(p,true);takeItem('bomb',1);if(G.room&&G.online)G.room.send({type:'broadcast',event:'use',payload:{k:SESSION,id:'bomb',p:[p.x,p.y,p.z]}});broadcast=false;break}
-   default:if(!ITEMS[s.id]&&d.stack&&false)takeItem(s.id,1)}
-  if(broadcast&&G.room&&G.online&&ITEMS[s.id])G.room.send({type:'broadcast',event:'use',payload:{k:SESSION,id:s.id,p:[m.pos.x,m.pos.y,m.pos.z]}});
-  G.evq.push({k:'itemUsed',id:s.id})}
+  if((G.itemCd[s.id]||0)>now)return;G.itemCd[s.id]=now+(d.cd??.3);const kind=d.kind||'script',pw=+d.power||0;let consume=!!d.stack;
+  switch(kind){
+   case 'melee':{G.swing=.3;sfx('hit');if(!G.pvp)toast('이 맵은 PvP가 꺼져 있어요',1.5);else{const f=fwdDir(),rg=clamp(+d.range||8,1,60);let best=null,bd=rg;for(const r of G.remotes.values()){if(!r.av||r.hp<=0)continue;const v=r.av.root.position.clone().sub(m.pos);v.y=0;const dist=v.length();if(dist<bd&&(dist<2||v.normalize().dot(f)>.3)){bd=dist;best=r}}if(best)sendHit(best,clamp(pw,0,40))}break}
+   case 'speed':if(G.buff.speed<=0)G.base.speed=m.speed;m.speed=G.base.speed*(pw||1.8);G.buff.speed=+d.sec||8;toast(d.icon+' '+d.name,1.5);beep(700,.15,'triangle');break;
+   case 'jump':if(G.buff.jump<=0)G.base.jump=m.jump;m.jump=G.base.jump*(pw||1.9);G.buff.jump=+d.sec||8;toast(d.icon+' '+d.name,1.5);beep(500,.15,'triangle');break;
+   case 'dash':{const f=fwdDir(),sp=clamp(pw||75,5,200);m.vel.x=f.x*sp;m.vel.z=f.z*sp;if(m.vel.y<12)m.vel.y=12;m.grounded=false;m.standing=null;beep(300,.2,'sawtooth');break}
+   case 'heal':if(m.hp>=m.maxHp){G.itemCd[s.id]=0;toast('체력이 가득이에요',1.2);return}m.hp=Math.min(m.maxHp,m.hp+(pw||50));setHud();sfx('coin');break;
+   case 'bomb':{const p=m.pos.clone().addScaledVector(fwdDir(),10);p.y+=1.5;explode(p,true,clamp(+d.range||12,2,40),clamp(pw||40,0,40));
+     if(G.room&&G.online)G.room.send({type:'broadcast',event:'use',payload:{k:SESSION,id:s.id,kind:'bomb',p:[p.x,p.y,p.z],rg:clamp(+d.range||12,2,40)}});break}
+   default:break}
+  if(kind!=='bomb'&&G.room&&G.online)G.room.send({type:'broadcast',event:'use',payload:{k:SESSION,id:s.id,kind,p:[m.pos.x,m.pos.y,m.pos.z]}});
+  G.evq.push({k:'itemUsed',id:s.id});if(consume)takeItem(s.id,1)}
 function onRemoteUse(p){if(!p||typeof p!=='object')return;const r=G.remotes.get(p.k);if(!r||typeof p.id!=='string')return;
-  if(p.id==='bomb'&&v3ok(p.p)){explode(new THREE.Vector3(clamp(p.p[0],-1e5,1e5),clamp(p.p[1],-1e5,1e5),clamp(p.p[2],-1e5,1e5)),false)}else if(p.id==='sword'&&r.vis)beep(220,.1,'sawtooth',.03)}
+  if(p.kind==='bomb'&&v3ok(p.p)){explode(new THREE.Vector3(clamp(p.p[0],-1e5,1e5),clamp(p.p[1],-1e5,1e5),clamp(p.p[2],-1e5,1e5)),false,clamp(+p.rg||12,2,40))}else if(p.kind==='melee'&&r.vis)beep(220,.1,'sawtooth',.03)}
 function onRemoteHit(p){if(!p||typeof p!=='object'||p.to!==SESSION||!G.pvp||G.me.dead)return;const r=G.remotes.get(p.k);if(!r)return;
   const now=performance.now();G.hitAt=G.hitAt.filter(t=>now-t<1000);if(G.hitAt.length>=4)return;G.hitAt.push(now);
   const dmg=clamp(+p.dmg||0,0,40);if(!dmg)return;const m=G.me;m.hp=Math.max(0,m.hp-dmg);setHud();sfx('hit');
@@ -934,13 +1061,13 @@ function onRemoteHit(p){if(!p||typeof p!=='object'||p.to!==SESSION||!G.pvp||G.me
 let heldMat=null;
 function tickKeys(){const a=[...G.keys],j=G.joy;if(Math.hypot(j.x,j.y)>.3){if(j.y<-.3)a.push('KeyW');if(j.y>.3)a.push('KeyS');if(j.x<-.3)a.push('KeyA');if(j.x>.3)a.push('KeyD')}return a}
 function itemFrame(dt){const m=G.me;
-  for(const r of G.itemRecs){if(r.d.visible===false||r.pickT)continue;r.o.rotation.y+=dt*2;
+  for(const r of G.itemRecs){if(G.off.has(r.d.item)){r.o.visible=false;continue}if(r.d.visible===false||r.pickT)continue;r.o.rotation.y+=dt*2;
     const c=r.k.c,dx=m.pos.x-c.x,dy=m.pos.y+2.5-c.y,dz=m.pos.z-c.z,rad=Math.max(...r.d.size)/2+2.5;
-    if(!m.dead&&dx*dx+dy*dy+dz*dz<rad*rad*1.6&&!(G.inv.length>=8)){giveItem(r.d.item);r.d.visible=false;syncRec(r);r.pickT=true;const rr=r;setTimeout(()=>{rr.pickT=false;if(G.active&&W.parts.get(rr.d.id)===rr){rr.d.visible=true;syncRec(rr)}},15000)}}
+    if(!m.dead&&dx*dx+dy*dy+dz*dz<rad*rad*1.6&&!(G.inv.length>=8)){giveItem(r.d.item);G.evq.push({k:'picked',id:r.d.item});r.d.visible=false;syncRec(r);r.pickT=true;const rr=r;setTimeout(()=>{rr.pickT=false;if(G.active&&W.parts.get(rr.d.id)===rr){rr.d.visible=true;syncRec(rr)}},15000)}}
   for(const k of ['speed','jump'])if(G.buff[k]>0){G.buff[k]-=dt;if(G.buff[k]<=0){m[k]=G.base[k];}}
   for(let i=G.fx.length-1;i>=0;i--){const f=G.fx[i];f.t+=dt;const a=f.t/.5;f.m.scale.setScalar(.5+a*f.max);f.m.material.opacity=Math.max(0,.7*(1-a));if(a>=1){scene.remove(f.m);f.m.geometry.dispose();f.m.material.dispose();G.fx.splice(i,1)}}
   // 손에 든 검
-  const s=G.inv[G.sel],showSword=!!(s&&s.id==='sword'&&m.av&&!m.dead);
+  const s=G.inv[G.sel],showSword=!!(s&&itemDef(s.id).kind==='melee'&&m.av&&!m.dead);
   if(showSword&&!G.held){heldMat=heldMat||new THREE.MeshStandardMaterial({color:'#cfd8e3',metalness:.6,roughness:.3});const g=new THREE.Group();const bl=new THREE.Mesh(new THREE.BoxGeometry(.25,2.8,.25),heldMat);bl.position.y=1.5;const hl=new THREE.Mesh(new THREE.BoxGeometry(.9,.2,.3),new THREE.MeshStandardMaterial({color:'#8a5a2a'}));hl.position.y=.1;g.add(bl,hl);g.position.set(1.7,2.4,1.2);m.av.root.add(g);G.held=g}
   if(G.held){G.held.visible=showSword;G.swing=Math.max(0,G.swing-dt);G.held.rotation.x=1.5-(G.swing>0?Math.sin((1-G.swing/.3)*Math.PI)*2.2:0)}}
 
@@ -985,9 +1112,9 @@ function gameFrame(dt){const m=G.me;G.frame++;
   if(k.has('ArrowLeft'))G.cam.yaw+=dt*2.2;if(k.has('ArrowRight'))G.cam.yaw-=dt*2.2;
   const cy=G.cam.yaw,fx=-Math.sin(cy),fz=-Math.cos(cy),rx=Math.cos(cy),rz=-Math.sin(cy);
   let wx=fx*iz+rx*ix,wz=fz*iz+rz*ix;const wl=Math.hypot(wx,wz);if(wl>0){wx/=wl;wz/=wl}
-  if(m.dead){wx=wz=0}
+  if(m.dead||m.frozen){wx=wz=0}
   const acc=1-Math.exp(-dt*(m.grounded?22:5));m.vel.x+=(wx*m.speed-m.vel.x)*acc;m.vel.z+=(wz*m.speed-m.vel.z)*acc;
-  if(k.has('Space')&&m.grounded&&!m.dead&&!m.seated){m.vel.y=m.jump;m.grounded=false;m.standing=null;sfx('jump')}
+  if(k.has('Space')&&m.grounded&&!m.dead&&!m.seated&&!m.frozen){m.vel.y=m.jump;m.grounded=false;m.standing=null;sfx('jump');G.evq.push({k:'jump'})}
   if(m.seated){m.vel.set(0,0,0);m.grounded=true;m.standing=null}else{let rem=Math.min(dt,.1);while(rem>0){const h=Math.min(rem,1/150);rem-=h;stepPhys(h)}}
   if(m.pos.y<-250&&!m.dead)respawn();
   if(m.standing)m.stInv.copy(m.standing.o.matrixWorld).invert();
