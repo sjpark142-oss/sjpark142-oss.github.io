@@ -323,7 +323,7 @@ const base={Math,JSON,Date,Promise,
   find:fn=>[...PM.values()].filter(fn),
   parts:()=>[...PM.values()],
   create(type,props={}){const d={id:'r'+(++uidn),name:props.name||type,type:['box','sphere','cylinder','cone','wedge'].includes(type)?type:'box',pos:[0,5,0],size:[4,4,4],rot:[0,0,0],color:'#a0a0a0',tr:0,collide:true,visible:true};
-    if(props.position)d.pos=toArr(props.position);if(props.size)d.size=toArr(props.size);if(props.rotation)d.rot=toArr(props.rotation);
+    if(props.parent&&props.parent.id)d.pos=[0,0,0];if(props.position)d.pos=toArr(props.position);if(props.size)d.size=toArr(props.size);if(props.rotation)d.rot=toArr(props.rotation);
     if(props.color)d.color=normColor(props.color);if(props.transparency!=null)d.tr=+props.transparency;if(props.parent&&props.parent.id)d.parent=props.parent.id;if(props.visible!=null)d.visible=!!props.visible;if(props.collide!=null)d.collide=!!props.collide;
     const p=reg(d);out({op:'create',d:JSON.parse(JSON.stringify(d))});return p},
   player,players,
