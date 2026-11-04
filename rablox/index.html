@@ -252,6 +252,7 @@ class Part{
   get rotation(){return this._rot}set rotation(v){this._rot.set(v)}
   get color(){return this._d.color}set color(v){this._s('color',normColor(v))}
   get transparency(){return this._d.tr}set transparency(v){this._s('tr',Math.max(0,Math.min(1,+v||0)))}
+  get parent(){return this._d.parent?PM.get(this._d.parent)||null:null}set parent(p){this._s('parent',p&&p.id?p.id:null)}
   get collide(){return this._d.collide}set collide(v){this._s('collide',!!v)}
   get visible(){return this._d.visible}set visible(v){this._s('visible',!!v)}
   onTouch(fn){this._h.touch.push(fn);out({op:'listen',id:this.id,k:'touch'});return this}
@@ -323,7 +324,7 @@ const base={Math,JSON,Date,Promise,
   parts:()=>[...PM.values()],
   create(type,props={}){const d={id:'r'+(++uidn),name:props.name||type,type:['box','sphere','cylinder','cone','wedge'].includes(type)?type:'box',pos:[0,5,0],size:[4,4,4],rot:[0,0,0],color:'#a0a0a0',tr:0,collide:true,visible:true};
     if(props.position)d.pos=toArr(props.position);if(props.size)d.size=toArr(props.size);if(props.rotation)d.rot=toArr(props.rotation);
-    if(props.color)d.color=normColor(props.color);if(props.transparency!=null)d.tr=+props.transparency;if(props.collide!=null)d.collide=!!props.collide;
+    if(props.color)d.color=normColor(props.color);if(props.transparency!=null)d.tr=+props.transparency;if(props.parent&&props.parent.id)d.parent=props.parent.id;if(props.visible!=null)d.visible=!!props.visible;if(props.collide!=null)d.collide=!!props.collide;
     const p=reg(d);out({op:'create',d:JSON.parse(JSON.stringify(d))});return p},
   player,players,
   chat:{system:(t,c)=>out({op:'chat',text:String(t).slice(0,200),color:c}),onMessage:fn=>base.on('chat',fn)},
@@ -508,16 +509,30 @@ function buildObj(d){let o;
     if(oc){const inner=oc.tpl.clone(true);inner.traverse(m=>{if(m.isMesh){if(oc.keep){const cl=x=>{const y=x.clone();y.side=THREE.DoubleSide;y.userData={keep:1,op:x.opacity,t:x.transparent};return y};m.material=Array.isArray(m.material)?m.material.map(cl):cl(m.material)}else m.material=mkMat(d);m.castShadow=m.receiveShadow=true;m.userData.pid=d.id}});o.add(inner)}}
   else{o=new THREE.Mesh(geo(d.type==='spawn'||d.type==='item'?'box':d.type),mkMat(d));o.castShadow=o.receiveShadow=true}
   o.userData.pid=d.id;return o}
+const _pm=new THREE.Vector3(),_qm=new THREE.Quaternion(),_sm=new THREE.Vector3(),_one=new THREE.Vector3(1,1,1),_le=new THREE.Euler(),_lm=new THREE.Matrix4();
+function computeWM(rec){const d=rec.d;_le.set(d.rot[0]*DEG,d.rot[1]*DEG,d.rot[2]*DEG,'XYZ');_qm.setFromEuler(_le);_pm.set(d.pos[0],d.pos[1],d.pos[2]);_lm.compose(_pm,_qm,_one);
+  rec.wm=rec.wm||new THREE.Matrix4();const pr=d.parent&&W.parts.get(d.parent);if(pr&&pr.wm)rec.wm.multiplyMatrices(pr.wm,_lm);else rec.wm.copy(_lm)}
+function setParent(rec,pid){const old=rec.d.parent&&W.parts.get(rec.d.parent);if(old&&old.kids)old.kids.delete(rec.d.id);
+  let pr=(typeof pid==='string'&&pid!==rec.d.id)?W.parts.get(pid):null;
+  if(pr){let c=pr,n=0;while(c){if(c===rec||++n>8){pr=null;break}c=c.d.parent?W.parts.get(c.d.parent):null}}
+  if(pr){rec.d.parent=pr.d.id;(pr.kids=pr.kids||new Set()).add(rec.d.id);if(!pr.wm)computeWM(pr)}else{rec.d.parent=null;if(!(rec.kids&&rec.kids.size))rec.wm=null}}
+function refreshRec(rec){if(rec.wm||rec.d.parent||(rec.kids&&rec.kids.size))computeWM(rec);updateCache(rec);syncRec(rec);
+  if(rec.kids)for(const id of rec.kids){const kr=W.parts.get(id);if(kr)refreshRec(kr)}}
 function updateCache(rec){const d=rec.d;const k=rec.k||(rec.k={c:new THREE.Vector3(),q:new THREE.Quaternion(),iq:new THREE.Quaternion(),h:new THREE.Vector3(),R:0,e:new THREE.Euler()});
-  k.c.set(d.pos[0],d.pos[1],d.pos[2]);k.e.set(d.rot[0]*DEG,d.rot[1]*DEG,d.rot[2]*DEG,'XYZ');k.q.setFromEuler(k.e);k.iq.copy(k.q).invert();
+  if(rec.wm)rec.wm.decompose(k.c,k.q,_sm);else{k.c.set(d.pos[0],d.pos[1],d.pos[2]);k.e.set(d.rot[0]*DEG,d.rot[1]*DEG,d.rot[2]*DEG,'XYZ');k.q.setFromEuler(k.e)}
+  k.iq.copy(k.q).invert();
   k.h.set(Math.abs(d.size[0])/2,Math.abs(d.size[1])/2,Math.abs(d.size[2])/2);k.R=k.h.length()}
 function syncRec(rec){const d=rec.d,o=rec.o;
-  o.position.set(d.pos[0],d.pos[1],d.pos[2]);o.rotation.set(d.rot[0]*DEG,d.rot[1]*DEG,d.rot[2]*DEG);o.scale.set(d.size[0],d.size[1],d.size[2]);
+  if(rec.wm&&rec.k){o.position.copy(rec.k.c);o.quaternion.copy(rec.k.q)}else{o.position.set(d.pos[0],d.pos[1],d.pos[2]);o.rotation.set(d.rot[0]*DEG,d.rot[1]*DEG,d.rot[2]*DEG)}
+  o.scale.set(d.size[0],d.size[1],d.size[2]);
   o.visible=d.visible!==false||mode==='editor';
   o.traverse(m=>{if(m.isMesh){for(const mt of (Array.isArray(m.material)?m.material:[m.material])){const tr=d.tr>0;if(mt.userData.keep){const t2=tr||mt.userData.t;if(mt.transparent!==t2){mt.transparent=t2;mt.needsUpdate=true}mt.opacity=tr?1-d.tr:mt.userData.op;continue}mt.color.set(d.color);if(mt.transparent!==tr){mt.transparent=tr;mt.needsUpdate=true}mt.opacity=1-d.tr}}});
   o.updateMatrixWorld(true)}
-function addPartRec(d){const o=buildObj(d);const rec={d,o,k:null,touch:false,click:false,inside:false};updateCache(rec);syncRec(rec);W.group.add(o);W.parts.set(d.id,rec);W.dirty=true;W.ver++;return rec}
-function removePartRec(id){const rec=W.parts.get(id);if(!rec)return;W.group.remove(rec.o);rec.o.traverse(m=>{if(m.isMesh)for(const x of (Array.isArray(m.material)?m.material:[m.material]))x.dispose()});W.parts.delete(id);W.dirty=true;W.ver++}
+function addPartRec(d){const pid=d.parent;d.parent=null;const o=buildObj(d);const rec={d,o,k:null,touch:false,click:false,inside:false,kids:null,wm:null};updateCache(rec);syncRec(rec);W.group.add(o);W.parts.set(d.id,rec);W.dirty=true;W.ver++;
+  if(pid){setParent(rec,pid);if(d.parent)refreshRec(rec)}return rec}
+function removePartRec(id){const rec=W.parts.get(id);if(!rec)return;
+  {const pr=rec.d.parent&&W.parts.get(rec.d.parent);if(pr&&pr.kids)pr.kids.delete(id);if(rec.kids)for(const kid of [...rec.kids]){const kr=W.parts.get(kid);if(kr){kr.d.parent=null;kr.wm=(kr.kids&&kr.kids.size)?kr.wm:null}}}
+  W.group.remove(rec.o);rec.o.traverse(m=>{if(m.isMesh)for(const x of (Array.isArray(m.material)?m.material:[m.material]))x.dispose()});W.parts.delete(id);W.dirty=true;W.ver++}
 function clearWorld(){for(const id of [...W.parts.keys()])removePartRec(id)}
 function applyEnv(){const m=W.map;hemi.intensity=.95;sun.intensity=1.7;scene.background=new THREE.Color(m.sky);scene.fog=new THREE.Fog(m.sky,250,1200);G.gravity=m.gravity}
 function loadWorld(map){clearWorld();W.map=map;for(const [k,t] of Object.entries(map.objs||{})){try{registerObj(k,t)}catch(e){console.warn('OBJ',e)}}for(const d of map.parts)addPartRec(d);applyEnv()}
@@ -785,6 +800,8 @@ const HELP=`스크립트는 JavaScript(async)로 작성하고, 격리된 Worker 
   part.position.x += 1   part.position = [x,y,z]   part.size   part.rotation(도)
   part.color = "red"|"#ff0000"   part.transparency   part.collide   part.visible   part.name
   part.onTouch(p=>{})  part.onTouchEnd(p=>{})  part.onClick(p=>{})
+  part.parent = 다른파트 (연결: 부모가 움직이면 자식도 같이 움직여요. 자식의 position/rotation 은 부모 기준 상대값)  part.parent = null (해제)
+  create("box",{parent:부모파트, position:[상대좌표]})  — 자동차처럼 여러 파트를 한 덩어리로 움직일 때 쓰세요
   part.destroy()   part.clone()   await part.tween({position:[..],size:[..],rotation:[..],transparency:1}, 초)
   me  → 파트에 연결한 스크립트에서 그 파트
 
@@ -976,8 +993,9 @@ function runCmd(c){if(!c||typeof c!=='object')return;const me=G.me;
     if(typeof s.name==='string')d.name=s.name.slice(0,40);
     if(typeof s.collide==='boolean'&&s.collide!==d.collide){d.collide=s.collide;W.dirty=true}
     if(typeof s.visible==='boolean'&&s.visible!==d.visible){d.visible=s.visible;W.dirty=true}
-    updateCache(rec);syncRec(rec);break}
-  case 'create':{if(W.parts.size>=6000||!c.d||!/^r\d+$/.test(String(c.d.id))||W.parts.has(c.d.id))break;const d=sPart(c.d,c.d.id);if(!d||d.type==='obj')break;W.map.parts.push(d);addPartRec(d);break}
+    if('parent' in s)setParent(rec,typeof s.parent==='string'&&/^[pr]\d+$/.test(s.parent)?s.parent:null);
+    refreshRec(rec);break}
+  case 'create':{if(W.parts.size>=6000||!c.d||!/^r\d+$/.test(String(c.d.id))||W.parts.has(c.d.id))break;const d=sPart(c.d,c.d.id);if(!d||d.type==='obj')break;if(typeof c.d.parent==='string'&&/^[pr]\d+$/.test(c.d.parent)&&W.parts.has(c.d.parent))d.parent=c.d.parent;W.map.parts.push(d);addPartRec(d);break}
   case 'del':{removePartRec(c.id);break}
   case 'listen':{const rec=W.parts.get(c.id);if(rec){if(c.k==='touch')rec.touch=true;else if(c.k==='click')rec.click=true;W.dirty=true}break}
   case 'me':switch(c.k){
