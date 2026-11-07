@@ -1125,7 +1125,7 @@ addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
 addEventListener('pointerdown',()=>{initAudio()});
 
 /* ============================================================ online (Supabase Realtime / local tabs) */
-const SUPABASE_URL='',SUPABASE_ANON_KEY='';   // ← 여기에 Supabase URL / anon key를 넣으면 기본값으로 쓰입니다
+const SUPABASE_URL='https://ubrsonmxhaacxchggufp.supabase.co',SUPABASE_ANON_KEY='sb_publishable_RvHYh78RdlsoG2kwY4XwRg_ObT0Hcaw';   // ← 여기에 Supabase URL / anon key를 넣으면 기본값으로 쓰입니다
 const AUTH_DOMAIN='carsim.app';                // 아이디 → 가짜 이메일(아이디@도메인) 변환용
 const SB_CDN='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
 const net={on:false,id:Math.random().toString(36).slice(2,10),name:'',send:null,close:null,mode:'',remotes:new Map(),last:0,cnt:0,user:null};
