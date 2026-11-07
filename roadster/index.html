@@ -32,6 +32,29 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 #set summary{cursor:pointer;font-weight:600;list-style:none}
 #set label{display:flex;justify-content:space-between;align-items:center;margin-top:7px;gap:8px}
 #set input{width:84px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);border-radius:6px;color:var(--tx);padding:3px 6px;font:inherit;text-align:right}
+#maps{right:14px;bottom:18px;width:236px;font-size:12.5px;display:flex;flex-direction:column;gap:7px}
+#maps button{background:rgba(53,224,255,.16);border:1px solid rgba(53,224,255,.5);color:var(--tx);border-radius:8px;padding:7px;font:inherit;cursor:pointer}
+#maps button:hover{background:rgba(53,224,255,.3)}
+#maps label{display:flex;justify-content:space-between;align-items:center}
+#maps input[type=number]{width:84px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);border-radius:6px;color:var(--tx);padding:3px 6px;font:inherit;text-align:right}
+#mapmsg{opacity:.75;font-size:11.5px;line-height:1.4;word-break:break-all}
+#net{left:50%;top:14px;transform:translateX(-50%);width:250px;font-size:12.5px;z-index:3}
+#net summary{cursor:pointer;font-weight:600;list-style:none;text-align:center}
+#net label{display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px}
+#net input{width:130px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);border-radius:6px;color:var(--tx);padding:3px 6px;font:inherit}
+#net button{background:rgba(53,224,255,.16);border:1px solid rgba(53,224,255,.5);color:var(--tx);border-radius:8px;padding:6px 8px;font:inherit;cursor:pointer;margin-top:7px}
+#net button:hover{background:rgba(53,224,255,.3)}
+#net details{margin-top:7px;border-top:1px solid rgba(255,255,255,.12);padding-top:6px}
+#net details summary{font-weight:500;text-align:left;opacity:.85}
+#n_msg{margin-top:7px;font-size:11.5px;opacity:.8;line-height:1.4;word-break:break-all}
+#chat{left:14px;bottom:18px;width:340px;pointer-events:none}
+#chatlog{font-size:13px;line-height:1.5;text-shadow:0 1px 4px #000}
+#chatlog div{transition:opacity .5s;background:rgba(0,0,0,.28);padding:1px 8px;border-radius:6px;margin-top:2px;width:fit-content;max-width:100%}
+#chatlog .sys{color:#ffd23c}
+#chatlog b{color:var(--ac)}
+#chatin{display:none;width:100%;margin-top:6px;pointer-events:auto;background:rgba(0,0,0,.6);border:1px solid var(--ac);border-radius:8px;color:var(--tx);padding:6px 10px;font:inherit}
+#tags{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.tag{position:absolute;left:0;top:0;display:none;font-size:13px;font-weight:600;padding:1px 8px;border-radius:8px;background:rgba(0,0,0,.45);text-shadow:0 1px 3px #000;white-space:nowrap}
 #loading{position:fixed;inset:0;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;background:#0b1220;z-index:9;font-size:15px}
 #loading .bar{width:260px;height:6px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
 #loading .bar i{display:block;height:100%;width:0;background:var(--ac)}
@@ -48,7 +71,7 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
   <kbd>Shift</kbd>(좌/우) 질소 부스터 · <kbd>Space</kbd> 상승(뜨기)
   <h4>공중 (뜬 상태)</h4>
   <kbd>W</kbd><kbd>S</kbd> 앞 / 뒤로 회전(피치) · <kbd>A</kbd><kbd>D</kbd> 좌 / 우 회전(롤)<br>
-  <kbd>Q</kbd><kbd>E</kbd> 좌 / 우 요(Y축) 회전<br>※ 공중 회전은 부스터(질소)를 소모합니다
+  <kbd>Q</kbd><kbd>E</kbd> 좌 / 우 요(Y축) 회전<br>※ 공중 회전·상승은 질소를 쓰지 않습니다 (부스터 추진 방식으로 계산)
   <h4>벽 붙기</h4>
   벽을 향해 달리면 벽을 타고 오르고, 바퀴를 벽에 대면 벽 위를 주행합니다 · <kbd>X</kbd> ON/OFF
   <h4>기타</h4>
@@ -60,6 +83,8 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
   <label>충전 시작 대기 (초)<input id="s_delay" type="number" min="0" step="0.5" value="2"></label>
   <label>완충 시간 (초)<input id="s_rech" type="number" min="0.5" step="0.5" value="5"></label>
   <label>부스터 출력 (배)<input id="s_pow" type="number" min="0" step="0.25" value="1"></label>
+  <label>상승 질소 소모 (psi/초)<input id="s_lift" type="number" min="0" step="50" value="0"></label>
+  <label>공중회전 질소 소모 (psi/초)<input id="s_rot" type="number" min="0" step="50" value="0"></label>
 </details>
 <div id="hud" class="panel">
   <div id="spd">0<small>km/h</small></div>
@@ -69,6 +94,30 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
     <div id="state"><span id="alt">고도 0 m</span><span id="fly">FLIGHT</span></div>
   </div>
 </div>
+<div id="maps" class="panel">
+  <button id="mapbtn">🗺 맵 GLB 불러오기</button><input id="mapfile" type="file" accept=".glb" hidden>
+  <label>맵 배율<input id="m_scale" type="number" step="0.1" min="0.001" value="1"></label>
+  <label>Z축이 위인 맵<input id="m_zup" type="checkbox"></label>
+  <button id="mapcity" style="display:none">기본 도시 맵으로</button>
+  <div id="mapmsg">GLB 파일을 이 창에 끌어다 놓아도 됩니다</div>
+</div>
+<div id="tags"></div>
+<details id="net" class="panel"><summary id="netsum">🌐 온라인 (오프라인)</summary>
+  <label>닉네임<input id="n_name" maxlength="12" placeholder="손님"></label>
+  <label>방 코드<input id="n_room" maxlength="30"></label>
+  <button id="n_conn" style="width:100%">접속</button>
+  <details><summary>계정 로그인 (선택)</summary>
+   <label>아이디<input id="n_id" maxlength="16"></label>
+   <label>비밀번호<input id="n_pw" type="password"></label>
+   <div style="display:flex;gap:6px"><button id="n_in" style="flex:1">로그인</button><button id="n_up" style="flex:1">가입</button></div>
+  </details>
+  <details><summary>Supabase 설정</summary>
+   <label>URL<input id="n_url" placeholder="https://xxxx.supabase.co"></label>
+   <label>anon key<input id="n_key" placeholder="eyJ..."></label>
+  </details>
+  <div id="n_msg">Supabase 설정이 없으면 같은 브라우저 탭끼리만 연결되는 데모 모드로 동작합니다</div>
+</details>
+<div id="chat" class="panel" style="background:none;border:none;backdrop-filter:none;padding:0"><div id="chatlog"></div><input id="chatin" maxlength="120" placeholder="채팅 입력 후 Enter (Esc 취소)"></div>
 <div id="toast"></div>
 <div id="loading"><div>Tesla 모델 불러오는 중…</div><div class="bar"><i id="lbar"></i></div></div>
 
@@ -109,9 +158,9 @@ function mmul(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;
 function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 
 /* ============================================================ settings */
-const CFG={cap:5000,use:1000,delay:2,rech:5,pow:1};
+const CFG={cap:5000,use:1000,delay:2,rech:5,pow:1,liftUse:0,rotUse:0};
 function bindSettings(){
- const map={s_cap:'cap',s_use:'use',s_delay:'delay',s_rech:'rech',s_pow:'pow'};
+ const map={s_cap:'cap',s_use:'use',s_delay:'delay',s_rech:'rech',s_pow:'pow',s_lift:'liftUse',s_rot:'rotUse'};
  for(const id in map){const el=$(id);el.addEventListener('change',()=>{const v=parseFloat(el.value);if(isFinite(v)&&v>=0){CFG[map[id]]=v;if(map[id]==='cap')nitro=Math.min(nitro,v)}el.value=CFG[map[id]]});
   el.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')el.blur()});}
 }
@@ -271,12 +320,13 @@ function mulberry32(a){return mulberry(a)}
 /* ---------- surface queries ---------- */
 const UP=[0,1,0];
 function surfaceAt(px,py,pz,tolB,tolR){
+ if(MAPMODE)return mapSurface(px,py,pz,Math.max(tolB,.8));
  let h=0,n=UP;const c=cellAt(px,pz);
  for(const b of c.b){if(px>b.x0&&px<b.x1&&pz>b.z0&&pz<b.z1&&b.top<=py+tolB&&b.top>h){h=b.top;n=UP}}
  for(const r of c.r){const [u,w]=r.loc(px,pz);if(!r.inside(u,w))continue;const hh=r.h(u);if(hh<=py+tolR&&hh>h){h=hh;const i=r.seg(u);const s=(r.prof[i+1][1]-r.prof[i][1])/(r.prof[i+1][0]-r.prof[i][0]);n=norm([-s*r.dx,1,-s*r.dz])}}
  return [h,n];
 }
-function pointInBox(x,y,z){const c=cellAt(x,z);for(const b of c.b)if(x>b.x0&&x<b.x1&&z>b.z0&&z<b.z1&&y<b.top&&y>b.y0)return true;return false}
+function pointInBox(x,y,z){if(MAPMODE)return false;const c=cellAt(x,z);for(const b of c.b)if(x>b.x0&&x<b.x1&&z>b.z0&&z<b.z1&&y<b.top&&y>b.y0)return true;return false}
 
 /* ============================================================ vehicle physics */
 const M=3200,GR=14.5,INERT=[8300,8600,3000],COMY=0.45;
@@ -286,7 +336,7 @@ const skids=[[.7,-.15,2.3],[-.7,-.15,2.3],[.7,-.17,-2.1],[-.7,-.17,-2.1],
  [.6,.62,.3],[-.6,.62,.3],[.6,.62,-1.2],[-.6,.62,-1.2],
  [.86,.0,1.8],[-.86,.0,1.8],[.86,.0,0],[-.86,.0,0],[.86,.0,-1.8],[-.86,.0,-1.8]];
 const hitPts=[...tires.map(t=>t.slice(0,3)),...skids,[0,-.1,2.44],[0,-.1,-2.44],[.8,.55,2.0],[-.8,.55,2.0],[.8,.55,-2.0],[-.8,.55,-2.0],[0,.66,.9],[0,.66,-1.4]];
-const SPAWN=[60,COMY+0.05,40];
+let SPAWN=[60,COMY+0.05,40];
 const car={pos:SPAWN.slice(),q:[0,0,0,1],v:[0,0,0],w:[0,0,0],R:null,steer:0,thr:0,airT:0,groundN:0,boosting:false,slip:0,impact:0,wb:0,wn:[0,1,0],climbT:0,climbN:[0,0,1],rot:false};
 car.R=quatToMat(car.q);
 let nitro=5000,sinceUse=99,WALL_ON=true;
@@ -373,11 +423,14 @@ function physStep(){
  // boost rocket
  if(boosting){const th=64000*CFG.pow*Math.max(0,1-Math.pow(Math.max(0,sFwd)/135,2));F=add(F,mul(fwd,th));}
  // lift
- if(lift&&car.pos[1]<700){F=add(F,mul(upb,M*GR*1.7))}
+ if(lift&&car.pos[1]<700&&(CFG.liftUse<=0||nitro>0)){F=add(F,mul(upb,M*GR*1.7));if(CFG.liftUse>0){nitro=Math.max(0,nitro-CFG.liftUse*dt);sinceUse=0}}
  // integrate linear
  car.v=add(car.v,mul(F,dt/M));
  // angular (body frame)
  let wb=mTV(R,car.w),tb=mTV(R,T);
+ const pit=(keys.KeyW?1:0)-(keys.KeyS?1:0),rol=(keys.KeyD?1:0)-(keys.KeyA?1:0),yaw=(keys.KeyQ?1:0)-(keys.KeyE?1:0);
+ car.rot=false;
+ if(car.airT>.08&&(pit||rol||yaw)&&(CFG.rotUse<=0||nitro>0)){car.rot=true;if(CFG.rotUse>0){nitro=Math.max(0,nitro-CFG.rotUse*dt*((pit!==0)+(rol!==0)+(yaw!==0)));sinceUse=0}tb[0]+=pit*INERT[0]*10;tb[2]+=rol*INERT[2]*10;tb[1]+=yaw*INERT[1]*7}
  const Iw=[INERT[0]*wb[0],INERT[1]*wb[1],INERT[2]*wb[2]];
  const gy=cross(wb,Iw);
  wb=[wb[0]+(tb[0]-gy[0])/INERT[0]*dt,wb[1]+(tb[1]-gy[1])/INERT[1]*dt,wb[2]+(tb[2]-gy[2])/INERT[2]*dt];
@@ -387,16 +440,11 @@ function physStep(){
  const wt=(wallC>=2||car.climbT>0)?1:0;
  if(wallC>=2)car.wn=norm(wnAcc);else if(car.climbT>0)car.wn=car.climbN;
  car.wb+=(wt-car.wb)*Math.min(1,dt*(wt?10:4));
- const air=car.airT>.08;car.rot=false;
+ const air=car.airT>.08;
  if(air){
-  const pit=(keys.KeyW?1:0)-(keys.KeyS?1:0),rol=(keys.KeyD?1:0)-(keys.KeyA?1:0),yaw=(keys.KeyQ?1:0)-(keys.KeyE?1:0);
-  const MAXW=4.2,nax=(pit!==0)+(rol!==0)+(yaw!==0);
-  if(nax>0&&nitro>0){
-   car.rot=true;nitro=Math.max(0,nitro-CFG.use*.6*nax*dt);sinceUse=0;
-   wb[0]=clamp(wb[0]+pit*9*dt,-MAXW,MAXW);wb[2]=clamp(wb[2]+rol*9*dt,-MAXW,MAXW);wb[1]=clamp(wb[1]+yaw*6*dt,-MAXW,MAXW);
-  }
+  const MAXW=4.2;wb[0]=clamp(wb[0],-MAXW,MAXW);wb[1]=clamp(wb[1],-MAXW,MAXW);wb[2]=clamp(wb[2],-MAXW,MAXW);
   const d=Math.max(0,1-.5*dt);
-  if(!(car.rot&&pit))wb[0]*=d;if(!(car.rot&&rol))wb[2]*=d;if(!(car.rot&&yaw))wb[1]*=d;
+  if(!pit)wb[0]*=d;if(!rol)wb[2]*=d;if(!yaw)wb[1]*=d;
  }
  car.w=mV(R,wb);
  if(car.climbT>0){car.climbT-=dt;const nn=car.climbN;const ax=cross(upb,nn);const l=len(ax);if(dot(upb,nn)<.96&&l>1e-3)car.w=mul(ax,7/l)}
@@ -407,9 +455,10 @@ function physStep(){
  let nq=[q[0]+dq[0],q[1]+dq[1],q[2]+dq[2],q[3]+dq[3]];const nl=Math.hypot(...nq);car.q=nq.map(x=>x/nl);
  car.R=quatToMat(car.q);
  collideObstacles();
- if(car.pos[1]<-50)resetCar(true);
+ if(car.pos[1]<(MAPMODE?MAP.bbox[1]-300:-50))resetCar(true);
 }
 function collideObstacles(){
+ if(MAPMODE){mapCollide();return}
  const R=car.R;
  const upb=mV(R,[0,1,0]),fwdb=mV(R,[0,0,1]);
  for(let hi=0;hi<hitPts.length;hi++){const loc=hitPts[hi];
@@ -456,7 +505,7 @@ function resolve(r,n,pen){
 }
 
 function wallAt(p,upb,reach){
- reach=reach||.4;
+ reach=reach||.4;if(MAPMODE)return wallAtMap(p,upb,reach);
  let best=null;const seen=[];
  for(const [ox,oz] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]){const c=cellAt(p[0]+ox,p[2]+oz);for(const b of c.b){
   if(seen.includes(b))continue;seen.push(b);
@@ -565,9 +614,9 @@ uniform mat4 uVP;uniform mat4 uModel;uniform mat3 uRot;uniform vec3 uC;uniform v
 out vec3 vW;out vec3 vN;out vec2 vUV;
 void main(){vec3 lp=aPos*uH+uC;vec4 w=uModel*vec4(lp,1.);vW=w.xyz;vN=uRot*aNor;vUV=aUV;gl_Position=uVP*w;}`,
 `#version 300 es
-precision highp float;in vec3 vW;in vec3 vN;in vec2 vUV;uniform sampler2D uTex;uniform vec3 uCam;uniform float uBoost;out vec4 o;${COMMON}
+precision highp float;in vec3 vW;in vec3 vN;in vec2 vUV;uniform sampler2D uTex;uniform vec3 uCam;uniform float uBoost;uniform vec3 uTint;out vec4 o;${COMMON}
 void main(){
-  vec3 alb=pow(texture(uTex,vUV).rgb,vec3(2.2));
+  vec3 alb=pow(texture(uTex,vUV).rgb,vec3(2.2))*uTint;
   vec3 n=normalize(vN);vec3 V=normalize(uCam-vW);if(dot(n,V)<0.&&!gl_FrontFacing)n=-n;
   float ndv=max(dot(n,V),0.);float fr=pow(1.-ndv,4.);
   float lum=dot(alb,vec3(.3,.59,.11));float gloss=mix(.9,.25,smoothstep(0.,.35,lum));
@@ -590,6 +639,251 @@ layout(location=0)in vec3 aPos;layout(location=1)in float aSize;layout(location=
 void main(){vec4 p=uVP*vec4(aPos,1.);gl_Position=p;gl_PointSize=clamp(aSize*uScale/max(p.w,.1),1.,260.);vC=aCol;}`,
 `#version 300 es
 precision highp float;in vec4 vC;out vec4 o;void main(){vec2 c=gl_PointCoord*2.-1.;float d=dot(c,c);if(d>1.)discard;float a=pow(1.-d,1.6);o=vec4(vC.rgb,vC.a*a);}`);
+
+/* ============================================================ custom map (GLB) */
+let MAPMODE=false,MAP=null,MAPSRC=null;
+const MCS=10;
+const mk=(ix,iz)=>(ix+4096)*8192+(iz+4096);
+const COMPT={5120:1,5121:1,5122:2,5123:2,5125:4,5126:4};
+const NC={SCALAR:1,VEC2:2,VEC3:3,VEC4:4};
+function readAcc(J,ab,binOff,i,asFloat){
+ const a=J.accessors[i],nc=NC[a.type],cs=COMPT[a.componentType];
+ const out=asFloat?new Float32Array(a.count*nc):new Uint32Array(a.count*nc);
+ if(a.bufferView===undefined)return out;
+ const bv=J.bufferViews[a.bufferView];
+ const base=binOff+(bv.byteOffset||0)+(a.byteOffset||0),stride=bv.byteStride||cs*nc;
+ const ct=a.componentType;
+ if(ct===5126&&stride===cs*nc&&base%4===0){out.set(new Float32Array(ab,base,a.count*nc));return out}
+ const dv=new DataView(ab);
+ const nd={5120:127,5121:255,5122:32767,5123:65535}[ct];
+ for(let n=0;n<a.count;n++)for(let k=0;k<nc;k++){
+  const o=base+n*stride+k*cs;let v;
+  switch(ct){case 5120:v=dv.getInt8(o);break;case 5121:v=dv.getUint8(o);break;case 5122:v=dv.getInt16(o,true);break;case 5123:v=dv.getUint16(o,true);break;case 5125:v=dv.getUint32(o,true);break;default:v=dv.getFloat32(o,true)}
+  if(asFloat&&a.normalized&&nd)v=Math.max(v/nd,-1);
+  out[n*nc+k]=v;}
+ return out;
+}
+function nodeMatrix(n){
+ if(n.matrix)return Float32Array.from(n.matrix);
+ const T=n.translation||[0,0,0],Q=n.rotation||[0,0,0,1],S=n.scale||[1,1,1];const R=quatToMat(Q);
+ return new Float32Array([R[0]*S[0],R[3]*S[0],R[6]*S[0],0,R[1]*S[1],R[4]*S[1],R[7]*S[1],0,R[2]*S[2],R[5]*S[2],R[8]*S[2],0,T[0],T[1],T[2],1]);
+}
+async function parseGLB(ab){
+ const dv=new DataView(ab);
+ if(ab.byteLength<20||dv.getUint32(0,true)!==0x46546C67)throw new Error('GLB(.glb) 파일이 아닙니다');
+ let off=12,J=null,binOff=0;
+ while(off+8<=ab.byteLength){const l=dv.getUint32(off,true),t=dv.getUint32(off+4,true);
+  if(t===0x4E4F534A&&!J)J=JSON.parse(new TextDecoder().decode(new Uint8Array(ab,off+8,l)));
+  else if(t===0x004E4942&&!binOff)binOff=off+8;
+  off+=8+l;}
+ if(!J)throw new Error('GLB JSON을 찾을 수 없습니다');
+ const req=(J.extensionsRequired||[]).filter(e=>/draco|meshopt/i.test(e));
+ if(req.length)throw new Error('압축된 GLB('+req[0]+')는 지원하지 않습니다. 압축 해제한 GLB를 사용하세요');
+ const groups=new Map();
+ const sc=J.scenes&&J.scenes[J.scene||0];const roots=sc?sc.nodes:(J.nodes||[]).map((_,i)=>i);
+ const stack=roots.map(r=>[r,new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1])]);
+ while(stack.length){
+  const [ni,pm]=stack.pop();const n=J.nodes[ni];const M4=mmul(pm,nodeMatrix(n));
+  if(n.children)for(const c of n.children)stack.push([c,M4]);
+  if(n.mesh===undefined)continue;
+  const c0=[M4[0],M4[1],M4[2]],c1=[M4[4],M4[5],M4[6]],c2=[M4[8],M4[9],M4[10]];
+  const k0=cross(c1,c2),k1=cross(c2,c0),k2=cross(c0,c1);const sg=dot(c0,k0)<0?-1:1;
+  for(const pr of J.meshes[n.mesh].primitives){
+   if((pr.mode===undefined?4:pr.mode)!==4||pr.attributes.POSITION===undefined)continue;
+   const pos=readAcc(J,ab,binOff,pr.attributes.POSITION,true);const nv=pos.length/3;
+   let idx;if(pr.indices!==undefined)idx=readAcc(J,ab,binOff,pr.indices,false);else{idx=new Uint32Array(nv);for(let i=0;i<nv;i++)idx[i]=i}
+   let nor=pr.attributes.NORMAL!==undefined?readAcc(J,ab,binOff,pr.attributes.NORMAL,true):null;
+   const uv=pr.attributes.TEXCOORD_0!==undefined?readAcc(J,ab,binOff,pr.attributes.TEXCOORD_0,true):new Float32Array(nv*2);
+   if(!nor){nor=new Float32Array(nv*3);for(let i=0;i<idx.length;i+=3){const a=idx[i]*3,b=idx[i+1]*3,c=idx[i+2]*3;
+     const e1=[pos[b]-pos[a],pos[b+1]-pos[a+1],pos[b+2]-pos[a+2]],e2=[pos[c]-pos[a],pos[c+1]-pos[a+1],pos[c+2]-pos[a+2]];const fn=cross(e1,e2);
+     for(const q of [a,b,c]){nor[q]+=fn[0];nor[q+1]+=fn[1];nor[q+2]+=fn[2]}}}
+   for(let i=0;i<nv;i++){const x=pos[i*3],y=pos[i*3+1],z=pos[i*3+2];
+    pos[i*3]=M4[0]*x+M4[4]*y+M4[8]*z+M4[12];pos[i*3+1]=M4[1]*x+M4[5]*y+M4[9]*z+M4[13];pos[i*3+2]=M4[2]*x+M4[6]*y+M4[10]*z+M4[14];
+    const nx=nor[i*3],ny=nor[i*3+1],nz=nor[i*3+2];
+    let X=(nx*k0[0]+ny*k1[0]+nz*k2[0])*sg,Y=(nx*k0[1]+ny*k1[1]+nz*k2[1])*sg,Z=(nx*k0[2]+ny*k1[2]+nz*k2[2])*sg;const l=Math.hypot(X,Y,Z)||1;
+    nor[i*3]=X/l;nor[i*3+1]=Y/l;nor[i*3+2]=Z/l;}
+   const mi=pr.material===undefined?-1:pr.material;let g=groups.get(mi);
+   if(!g){g={mi,pos:[],nor:[],uv:[],idx:[],nv:0};groups.set(mi,g)}
+   const base=g.nv;g.pos.push(pos);g.nor.push(nor);g.uv.push(uv);
+   if(base){const ix=new Uint32Array(idx.length);for(let i=0;i<idx.length;i++)ix[i]=idx[i]+base;g.idx.push(ix)}else g.idx.push(idx);
+   g.nv+=nv;
+  }
+ }
+ const cat=(arr,T,len)=>{const o=new T(len);let p=0;for(const a of arr){o.set(a,p);p+=a.length}return o};
+ const out=[];const imgCache=new Map();
+ for(const g of groups.values()){
+  const m=g.mi>=0?J.materials[g.mi]:{};const pbr=m.pbrMetallicRoughness||{};
+  let color=pbr.baseColorFactor||[1,1,1,1],ti=pbr.baseColorTexture;
+  const sg2=m.extensions&&m.extensions.KHR_materials_pbrSpecularGlossiness;
+  if(sg2){color=sg2.diffuseFactor||[1,1,1,1];ti=sg2.diffuseTexture}
+  let img=-1;
+  if(ti&&J.textures&&J.textures[ti.index]&&J.textures[ti.index].source!==undefined){
+   const si=J.textures[ti.index].source;
+   if(!imgCache.has(si)){const im=J.images[si];let blob=null;
+    try{if(im.bufferView!==undefined){const bv=J.bufferViews[im.bufferView];blob=new Blob([new Uint8Array(ab,binOff+(bv.byteOffset||0),bv.byteLength)],{type:im.mimeType||'image/png'})}
+     else if(im.uri&&im.uri.startsWith('data:'))blob=await (await fetch(im.uri)).blob()}catch(e){}
+    imgCache.set(si,blob)}
+   if(imgCache.get(si))img=si;
+  }
+  const am=m.alphaMode||'OPAQUE';
+  out.push({pos:cat(g.pos,Float32Array,g.nv*3),nor:cat(g.nor,Float32Array,g.nv*3),uv:cat(g.uv,Float32Array,g.nv*2),idx:cat(g.idx,Uint32Array,g.idx.reduce((s,a)=>s+a.length,0)),
+   color,img,cut:am==='MASK'?(m.alphaCutoff===undefined?.5:m.alphaCutoff):(am==='BLEND'?.01:-1),blend:am==='BLEND'});
+ }
+ if(!out.length)throw new Error('삼각형 메시를 찾지 못했습니다');
+ const blobs={};for(const [k,v] of imgCache)blobs[k]=v;
+ return {groups:out,blobs};
+}
+const mapP=program(`#version 300 es
+layout(location=0)in vec3 aPos;layout(location=1)in vec3 aNor;layout(location=2)in vec2 aUV;uniform mat4 uVP;out vec3 vP;out vec3 vN;out vec2 vUV;
+void main(){vP=aPos;vN=aNor;vUV=aUV;gl_Position=uVP*vec4(aPos,1.);}`,
+`#version 300 es
+precision highp float;in vec3 vP;in vec3 vN;in vec2 vUV;uniform sampler2D uTex;uniform float uHas;uniform vec4 uColor;uniform float uCut;uniform vec3 uCam;out vec4 o;${COMMON}
+void main(){
+ vec4 t=uHas>.5?texture(uTex,vUV):vec4(1.);
+ vec4 b=uColor*vec4(pow(t.rgb,vec3(2.2)),t.a);
+ if(uCut<0.)b.a=1.;else if(b.a<uCut)discard;
+ vec3 n=normalize(vN);vec3 V=normalize(uCam-vP);if(dot(n,V)<0.)n=-n;
+ float ndl=max(dot(n,SUN),0.);
+ vec3 hemi=mix(vec3(.2,.17,.15),vec3(.34,.44,.64),n.y*.5+.5);
+ vec3 col=b.rgb*(hemi+ndl*vec3(1.6,1.25,.95));
+ col+=pow(max(dot(n,normalize(SUN+V)),0.),50.)*.08;
+ o=vec4(finish(col,length(uCam-vP),-V),b.a);}`);
+function freeMap(){if(!MAP)return;for(const g of MAP.groups){gl.deleteVertexArray(g.vao);for(const b of g.bufs)gl.deleteBuffer(b)}MAP=null}
+function applyMap(){
+ const scale=Math.max(1e-4,parseFloat($('m_scale').value)||1),zup=$('m_zup').checked;
+ const old=MAP;if(old){for(const g of old.groups){gl.deleteVertexArray(g.vao);for(const b of g.bufs)gl.deleteBuffer(b)}}
+ const groups=[];let nt=0;
+ for(const s of MAPSRC.groups){const nv=s.pos.length/3;const p=new Float32Array(s.pos.length),nr=new Float32Array(s.nor.length);
+  for(let i=0;i<nv;i++){let x=s.pos[i*3],y=s.pos[i*3+1],z=s.pos[i*3+2],nx=s.nor[i*3],ny=s.nor[i*3+1],nz=s.nor[i*3+2];
+   if(zup){let t=y;y=z;z=-t;t=ny;ny=nz;nz=-t}
+   p[i*3]=x*scale;p[i*3+1]=y*scale;p[i*3+2]=z*scale;nr[i*3]=nx;nr[i*3+1]=ny;nr[i*3+2]=nz}
+  const g={p,nr,uv:s.uv,idx:s.idx,color:s.color,img:s.img,cut:s.cut,blend:s.blend};
+  g.vao=gl.createVertexArray();gl.bindVertexArray(g.vao);g.bufs=[];
+  const mkb=(data,loc,sz)=>{const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,sz,gl.FLOAT,false,0,0);g.bufs.push(b)};
+  mkb(p,0,3);mkb(nr,1,3);mkb(s.uv,2,2);
+  const ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,s.idx,gl.STATIC_DRAW);g.bufs.push(ib);
+  gl.bindVertexArray(null);g.count=s.idx.length;nt+=s.idx.length/3;groups.push(g)}
+ // collision triangles
+ const T=new Float32Array(nt*9),N=new Float32Array(nt*3);let n=0;
+ let minx=1e30,miny=1e30,minz=1e30,maxx=-1e30,maxy=-1e30,maxz=-1e30;
+ for(const g of groups){const p=g.p,ix=g.idx;
+  for(let i=0;i<ix.length;i+=3){const a=ix[i]*3,b=ix[i+1]*3,c=ix[i+2]*3;
+   const e1x=p[b]-p[a],e1y=p[b+1]-p[a+1],e1z=p[b+2]-p[a+2],e2x=p[c]-p[a],e2y=p[c+1]-p[a+1],e2z=p[c+2]-p[a+2];
+   let nx=e1y*e2z-e1z*e2y,ny=e1z*e2x-e1x*e2z,nz=e1x*e2y-e1y*e2x;const l=Math.hypot(nx,ny,nz);if(l<1e-10)continue;
+   const o=n*9;T[o]=p[a];T[o+1]=p[a+1];T[o+2]=p[a+2];T[o+3]=p[b];T[o+4]=p[b+1];T[o+5]=p[b+2];T[o+6]=p[c];T[o+7]=p[c+1];T[o+8]=p[c+2];
+   N[n*3]=nx/l;N[n*3+1]=ny/l;N[n*3+2]=nz/l;n++;
+   for(let k=0;k<9;k+=3){const x=T[o+k],y=T[o+k+1],z=T[o+k+2];if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;if(z<minz)minz=z;if(z>maxz)maxz=z}}}
+ const grid=new Map(),big={w:[],s:[]};
+ for(let t=0;t<n;t++){const o=t*9;const ny=Math.abs(N[t*3+1]);const walk=ny>=.35,steep=ny<.5;
+  const x0=Math.min(T[o],T[o+3],T[o+6]),x1=Math.max(T[o],T[o+3],T[o+6]),z0=Math.min(T[o+2],T[o+5],T[o+8]),z1=Math.max(T[o+2],T[o+5],T[o+8]);
+  const i0=Math.floor(x0/MCS),i1=Math.floor(x1/MCS),j0=Math.floor(z0/MCS),j1=Math.floor(z1/MCS);
+  if((i1-i0+1)*(j1-j0+1)>300){if(walk)big.w.push(t);if(steep)big.s.push(t);continue}
+  for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++){const k=mk(i,j);let c=grid.get(k);if(!c){c={w:[],s:[]};grid.set(k,c)}if(walk)c.w.push(t);if(steep)c.s.push(t)}}
+ MAP={groups,T,N,n,grid,big,bbox:[minx,miny,minz,maxx,maxy,maxz]};MAPMODE=true;
+ // spawn: median ground height of random samples
+ const hits=[];const rnd=mulberry(7);
+ for(let i=0;i<300;i++){const x=lerp(minx,maxx,rnd()),z=lerp(minz,maxz,rnd());const [h]=mapSurface(x,maxy+1,z,0);if(h>-1e8)hits.push([h,x,z])}
+ hits.sort((a,b)=>a[0]-b[0]);
+ const pick=hits.length?hits[Math.floor(hits.length*.4)]:[maxy,(minx+maxx)/2,(minz+maxz)/2];
+ SPAWN=[pick[1],pick[0]+COMY+.3,pick[2]];
+ resetCar(true);cam.init=false;
+ return {tris:n,size:[maxx-minx,maxy-miny,maxz-minz]};
+}
+function mapCells(x,z,r){const out=[],seen=new Set();for(const [dx,dz] of [[-r,-r],[r,-r],[-r,r],[r,r]]){const k=mk(Math.floor((x+dx)/MCS),Math.floor((z+dz)/MCS));if(seen.has(k))continue;seen.add(k);const c=MAP.grid.get(k);if(c)out.push(c)}return out}
+function mapSurface(px,py,pz,tol){
+ let bh=-1e9,bi=-1;const T=MAP.T;
+ const test=t=>{const o=t*9;const x1=T[o],z1=T[o+2],x2=T[o+3],z2=T[o+5],x3=T[o+6],z3=T[o+8];
+  const d=(z2-z3)*(x1-x3)+(x3-x2)*(z1-z3);if(Math.abs(d)<1e-12)return;
+  const l1=((z2-z3)*(px-x3)+(x3-x2)*(pz-z3))/d,l2=((z3-z1)*(px-x3)+(x1-x3)*(pz-z3))/d,l3=1-l1-l2;
+  if(l1<-1e-4||l2<-1e-4||l3<-1e-4)return;
+  const y=l1*T[o+1]+l2*T[o+4]+l3*T[o+7];if(y<=py+tol&&y>bh){bh=y;bi=t}};
+ const c=MAP.grid.get(mk(Math.floor(px/MCS),Math.floor(pz/MCS)));
+ if(c)for(const t of c.w)test(t);
+ for(const t of MAP.big.w)test(t);
+ if(bi<0)return [-1e9,UP];
+ let n=[MAP.N[bi*3],MAP.N[bi*3+1],MAP.N[bi*3+2]];if(n[1]<0)n=[-n[0],-n[1],-n[2]];
+ return [bh,n];
+}
+function closestOnTri(px,py,pz,o){const T=MAP.T;
+ const ax=T[o],ay=T[o+1],az=T[o+2],bx=T[o+3],by=T[o+4],bz=T[o+5],cx=T[o+6],cy=T[o+7],cz=T[o+8];
+ const abx=bx-ax,aby=by-ay,abz=bz-az,acx=cx-ax,acy=cy-ay,acz=cz-az,apx=px-ax,apy=py-ay,apz=pz-az;
+ const d1=abx*apx+aby*apy+abz*apz,d2=acx*apx+acy*apy+acz*apz;if(d1<=0&&d2<=0)return [ax,ay,az];
+ const bpx=px-bx,bpy=py-by,bpz=pz-bz,d3=abx*bpx+aby*bpy+abz*bpz,d4=acx*bpx+acy*bpy+acz*bpz;if(d3>=0&&d4<=d3)return [bx,by,bz];
+ const vc=d1*d4-d3*d2;if(vc<=0&&d1>=0&&d3<=0){const v=d1/(d1-d3);return [ax+v*abx,ay+v*aby,az+v*abz]}
+ const cpx=px-cx,cpy=py-cy,cpz=pz-cz,d5=abx*cpx+aby*cpy+abz*cpz,d6=acx*cpx+acy*cpy+acz*cpz;if(d6>=0&&d5<=d6)return [cx,cy,cz];
+ const vb=d5*d2-d1*d6;if(vb<=0&&d2>=0&&d6<=0){const w=d2/(d2-d6);return [ax+w*acx,ay+w*acy,az+w*acz]}
+ const va=d3*d6-d5*d4;if(va<=0&&(d4-d3)>=0&&(d5-d6)>=0){const w=(d4-d3)/((d4-d3)+(d5-d6));return [bx+w*(cx-bx),by+w*(cy-by),bz+w*(cz-bz)]}
+ const den=1/(va+vb+vc),v=vb*den,w=vc*den;return [ax+abx*v+acx*w,ay+aby*v+acy*w,az+abz*v+acz*w];}
+function steepNear(p,r){const out=[];for(const c of mapCells(p[0],p[2],r))for(const t of c.s)out.push(t);for(const t of MAP.big.s)out.push(t);return out}
+function wallAtMap(p,upb,reach){
+ let best=null;
+ for(const t of steepNear(p,reach+.9)){const o=t*9;const cp=closestOnTri(p[0],p[1],p[2],o);
+  const d=Math.hypot(p[0]-cp[0],p[1]-cp[1],p[2]-cp[2]);if(d>reach+.9)continue;
+  let n=[MAP.N[t*3],MAP.N[t*3+1],MAP.N[t*3+2]];if(dot(n,upb)<0)n=[-n[0],-n[1],-n[2]];if(dot(n,upb)<=.5)continue;
+  const s=dot(n,[p[0]-MAP.T[o],p[1]-MAP.T[o+1],p[2]-MAP.T[o+2]]);
+  if(s<-.8||s>reach||d>Math.abs(s)+.3)continue;
+  const dep=-s;if(!best||dep>best.depth)best={depth:dep,n};}
+ return best;}
+function mapCollide(){
+ const R=car.R;const upb=mV(R,[0,1,0]),fwdb=mV(R,[0,0,1]);
+ for(let hi=0;hi<hitPts.length;hi++){
+  const r=mV(R,hitPts[hi]);const p=add(car.pos,r);
+  for(const t of steepNear(p,.4)){const o=t*9;const cp=closestOnTri(p[0],p[1],p[2],o);
+   const d=Math.hypot(p[0]-cp[0],p[1]-cp[1],p[2]-cp[2]);if(d>.4)continue;
+   let n=[MAP.N[t*3],MAP.N[t*3+1],MAP.N[t*3+2]];
+   if(dot(n,sub(car.pos,cp))<0)n=[-n[0],-n[1],-n[2]];
+   const s=dot(n,sub(p,cp));const pen=.4-s;if(pen<=0)continue;
+   if(WALL_ON&&Math.abs(n[1])<.5){
+    if(car.climbT>0)continue;
+    if(hi<8&&dot(upb,n)>.45)continue;
+    const sp=len(car.v);
+    if(hi>=8&&sp>9&&keys.KeyW&&Math.abs(n[1])<.25&&dot(fwdb,mul(n,-1))>.65){const nh=norm([n[0],0,n[2]]);car.climbT=.7;car.climbN=nh;car.pos=add(car.pos,mul(nh,1.0));car.v=add(sub(car.v,mul(nh,dot(car.v,nh))),[0,sp*.85,0]);toast('벽 타기!');continue}
+   }
+   resolve(r,n,pen);}
+ }
+}
+function drawMap(vp){
+ gl.useProgram(mapP.p);gl.uniformMatrix4fv(mapP.u.uVP,false,vp);gl.uniform3fv(mapP.u.uCam,cam.eye);
+ for(const pass of [0,1]){
+  if(pass===1){gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false)}
+  for(const g of MAP.groups){if((pass===1)!==g.blend)continue;
+   gl.uniform4fv(mapP.u.uColor,g.color);gl.uniform1f(mapP.u.uCut,g.cut);
+   const tx=g.img>=0&&MAPSRC.tex[g.img];
+   if(tx){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,tx);gl.uniform1i(mapP.u.uTex,0);gl.uniform1f(mapP.u.uHas,1)}else gl.uniform1f(mapP.u.uHas,0);
+   gl.bindVertexArray(g.vao);gl.drawElements(gl.TRIANGLES,g.count,gl.UNSIGNED_INT,0);}
+  if(pass===1){gl.disable(gl.BLEND);gl.depthMask(true)}
+ }
+}
+async function loadMapFile(file){
+ const ld=$('loading');ld.style.display='flex';ld.firstElementChild.textContent='맵 불러오는 중…';$('lbar').style.width='30%';
+ try{
+  await new Promise(r=>setTimeout(r,30));
+  const ab=await file.arrayBuffer();const src=await parseGLB(ab);$('lbar').style.width='60%';
+  src.tex={};
+  for(const k in src.blobs){try{const bmp=await createImageBitmap(src.blobs[k],{premultiplyAlpha:'none',colorSpaceConversion:'none'});
+   const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,bmp);gl.generateMipmap(gl.TEXTURE_2D);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
+   const an=gl.getExtension('EXT_texture_filter_anisotropic');if(an)gl.texParameterf(gl.TEXTURE_2D,an.TEXTURE_MAX_ANISOTROPY_EXT,4);
+   src.tex[k]=t}catch(e){}}
+  MAPSRC=src;
+  const info=applyMap();
+  $('mapmsg').textContent=file.name+' · 삼각형 '+info.tris.toLocaleString()+' · 크기 '+info.size.map(v=>Math.round(v)).join('×')+' m';
+  $('mapcity').style.display='block';toast('맵 불러옴');
+ }catch(err){console.error(err);$('mapmsg').textContent='오류: '+err.message;toast('맵 불러오기 실패')}
+ ld.style.display='none';ld.firstElementChild.textContent='Tesla 모델 불러오는 중…';
+}
+function bindMapUI(){
+ $('mapbtn').addEventListener('click',()=>$('mapfile').click());
+ $('mapfile').addEventListener('change',e=>{const f=e.target.files[0];if(f)loadMapFile(f);e.target.value=''});
+ $('m_scale').addEventListener('change',()=>{if(MAPSRC&&MAPMODE){applyMap();toast('배율 적용')}});
+ $('m_zup').addEventListener('change',()=>{if(MAPSRC&&MAPMODE){applyMap();toast('Z-up 적용')}});
+ for(const id of ['m_scale'])$(id).addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')e.target.blur()});
+ $('mapcity').addEventListener('click',()=>{MAPMODE=false;SPAWN=[60,COMY+.05,40];resetCar(true);cam.init=false;$('mapcity').style.display='none';$('mapmsg').textContent='기본 도시 맵';});
+ addEventListener('dragover',e=>e.preventDefault());
+ addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer&&e.dataTransfer.files[0];if(f&&/\.glb$/i.test(f.name))loadMapFile(f);});
+}
 
 /* ---------- static world buffer ---------- */
 let worldVAO,worldCount;
@@ -747,18 +1041,27 @@ function updateHud(){
  const kmh=len(car.v)*3.6;speedEl.firstChild.nodeValue=Math.round(kmh);
  nitnum.textContent=Math.round(nitro)+' / '+Math.round(CFG.cap)+' psi';
  nitfill.style.width=(100*nitro/CFG.cap)+'%';
- nitfill.className=(car.boosting||car.rot)?'use':(sinceUse<CFG.delay&&nitro<CFG.cap?'wait':'');
+ nitfill.className=car.boosting?'use':(sinceUse<CFG.delay&&nitro<CFG.cap?'wait':'');
  const [gh]=surfaceAt(car.pos[0],car.pos[1],car.pos[2],.5,.5);
- altEl.textContent='고도 '+Math.max(0,Math.round(car.pos[1]-COMY-gh))+' m';
+ altEl.textContent=gh<-1e8?'고도 -- m':'고도 '+Math.max(0,Math.round(car.pos[1]-COMY-gh))+' m';
  flyEl.className=car.airT>.08?'on':'';
  fx.style.opacity=Math.min(1,Math.max(0,(kmh-180)/200)+(car.boosting?.6:0));
+}
+function drawCar(vp,pos,R,boost,tint){
+  const off=mV(R,[0,-COMY,0]);const o=add(pos,off);
+  const model=new Float32Array([R[0],R[3],R[6],0,R[1],R[4],R[7],0,R[2],R[5],R[8],0,o[0],o[1],o[2],1]);
+  const rot=new Float32Array([R[0],R[3],R[6],R[1],R[4],R[7],R[2],R[5],R[8]]);
+  gl.useProgram(carP.p);gl.uniformMatrix4fv(carP.u.uVP,false,vp);gl.uniformMatrix4fv(carP.u.uModel,false,model);gl.uniformMatrix3fv(carP.u.uRot,false,rot);
+  gl.uniform3fv(carP.u.uC,PACK_META.center);gl.uniform3fv(carP.u.uH,PACK_META.half);gl.uniform3fv(carP.u.uCam,cam.eye);gl.uniform1f(carP.u.uBoost,boost?1:0);gl.uniform3fv(carP.u.uTint,tint);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,carTex);gl.uniform1i(carP.u.uTex,0);
+  gl.enable(gl.CULL_FACE);gl.bindVertexArray(carVAO);gl.drawElements(gl.TRIANGLES,carCount,gl.UNSIGNED_INT,0);gl.disable(gl.CULL_FACE);
 }
 function render(){
  resize();gl.viewport(0,0,canvas.width,canvas.height);
  const asp=canvas.width/canvas.height;
- const proj=perspective(cam.fov,asp,.25,6000);
+ const proj=perspective(cam.fov,asp,.3,MAPMODE?20000:6000);
  const view=lookAt(cam.eye,cam.target,cam.upv);
- const vp=mmul(proj,view);
+ const vp=mmul(proj,view);lastVP=vp;
  gl.clearColor(.5,.6,.8,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
  gl.disable(gl.CULL_FACE);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.disable(gl.BLEND);
  // sky
@@ -767,10 +1070,11 @@ function render(){
  gl.useProgram(skyP.p);gl.uniform3fv(skyP.u.uR,rt);gl.uniform3fv(skyP.u.uU,up);gl.uniform3fv(skyP.u.uF,f);gl.uniform2f(skyP.u.uT,th*asp,th);
  gl.depthMask(false);gl.bindVertexArray(skyVAO);gl.drawArrays(gl.TRIANGLES,0,3);gl.depthMask(true);
  // world
+ if(MAPMODE&&MAP){drawMap(vp)}else{
  gl.useProgram(worldP.p);gl.uniformMatrix4fv(worldP.u.uVP,false,vp);gl.uniform3fv(worldP.u.uCam,cam.eye);
  gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(1,1);
  gl.bindVertexArray(worldVAO);gl.drawArrays(gl.TRIANGLES,0,worldCount);
- gl.disable(gl.POLYGON_OFFSET_FILL);
+ gl.disable(gl.POLYGON_OFFSET_FILL);}
  // shadow
  {const R=car.R;const [h,n]=surfaceAt(car.pos[0],car.pos[1],car.pos[2],.3,.3);
   const height=car.pos[1]-COMY-h;
@@ -783,15 +1087,7 @@ function render(){
   gl.bindBuffer(gl.ARRAY_BUFFER,shadBuf);gl.bufferSubData(gl.ARRAY_BUFFER,0,d);gl.bindVertexArray(shadVAO);gl.drawArrays(gl.TRIANGLES,0,6);
   gl.disable(gl.POLYGON_OFFSET_FILL);gl.depthMask(true);gl.disable(gl.BLEND);}
  // car
- if(carVAO&&cam.mode!==99){
-  const R=car.R;const off=mV(R,[0,-COMY,0]);const o=add(car.pos,off);
-  const model=new Float32Array([R[0],R[3],R[6],0,R[1],R[4],R[7],0,R[2],R[5],R[8],0,o[0],o[1],o[2],1]);
-  const rot=new Float32Array([R[0],R[3],R[6],R[1],R[4],R[7],R[2],R[5],R[8]]);
-  gl.useProgram(carP.p);gl.uniformMatrix4fv(carP.u.uVP,false,vp);gl.uniformMatrix4fv(carP.u.uModel,false,model);gl.uniformMatrix3fv(carP.u.uRot,false,rot);
-  gl.uniform3fv(carP.u.uC,PACK_META.center);gl.uniform3fv(carP.u.uH,PACK_META.half);gl.uniform3fv(carP.u.uCam,cam.eye);gl.uniform1f(carP.u.uBoost,car.boosting?1:0);
-  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,carTex);gl.uniform1i(carP.u.uTex,0);
-  gl.enable(gl.CULL_FACE);gl.bindVertexArray(carVAO);gl.drawElements(gl.TRIANGLES,carCount,gl.UNSIGNED_INT,0);gl.disable(gl.CULL_FACE);
- }
+ if(carVAO){drawCar(vp,car.pos,car.R,car.boosting,[1,1,1]);for(const r of net.remotes.values())drawCar(vp,r.rp,quatToMat(r.rq),r.b,r.tint)}
  // particles
  gl.useProgram(partP.p);gl.uniformMatrix4fv(partP.u.uVP,false,vp);gl.uniform1f(partP.u.uScale,canvas.height/(2*Math.tan(cam.fov/2)));
  gl.enable(gl.BLEND);gl.depthMask(false);
@@ -806,7 +1102,7 @@ function frame(ts){
  while(acc>=dt&&n<20){physStep();acc-=dt;n++}
  if(n===20)acc=0;
  if(car.impact>6){cam.shake=Math.min(.8,car.impact*.03)}car.impact=0;
- updateParticles(dtf);emitFX(dtf);updateCamera(dtf);updateHud();updateAudio();render();
+ updateParticles(dtf);emitFX(dtf);updateCamera(dtf);updateHud();updateAudio();netTick(dtf);render();updateTags();
  requestAnimationFrame(frame);
 }
 
@@ -814,6 +1110,7 @@ function frame(ts){
 addEventListener('keydown',e=>{
  if(e.target&&e.target.tagName==='INPUT')return;
  if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'].includes(e.code))e.preventDefault();
+ if(e.code==='Enter'){e.preventDefault();const ci=$('chatin');ci.style.display='block';ci.focus();for(const k in keys)keys[k]=false;return}
  if(e.repeat)return;keys[e.code]=true;initAudio();if(actx&&actx.state==='suspended')actx.resume();
  if(e.code==='ArrowUp')keys.KeyW=true;if(e.code==='ArrowDown')keys.KeyS=true;if(e.code==='ArrowLeft')keys.KeyA=true;if(e.code==='ArrowRight')keys.KeyD=true;
  if(e.code==='KeyR'){resetCar(true);toast('처음 위치로')}
@@ -827,12 +1124,133 @@ addEventListener('keyup',e=>{keys[e.code]=false;
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
 addEventListener('pointerdown',()=>{initAudio()});
 
+/* ============================================================ online (Supabase Realtime / local tabs) */
+const SUPABASE_URL='',SUPABASE_ANON_KEY='';   // ← 여기에 Supabase URL / anon key를 넣으면 기본값으로 쓰입니다
+const AUTH_DOMAIN='carsim.app';                // 아이디 → 가짜 이메일(아이디@도메인) 변환용
+const SB_CDN='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
+const net={on:false,id:Math.random().toString(36).slice(2,10),name:'',send:null,close:null,mode:'',remotes:new Map(),last:0,cnt:0,user:null};
+let sbc=null,lastVP=null;
+const lsGet=k=>{try{return localStorage.getItem(k)||''}catch(e){return ''}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const BAD=/(시발|씨발|ㅅㅂ|ㅂㅅ|병신|지랄|개새끼|좆|fuck|shit)/gi;
+const cleanTxt=t=>String(t).replace(BAD,'***').slice(0,120);
+function setNetMsg(t){$('n_msg').textContent=t}
+function chatAdd(name,text,sys){
+ const d=document.createElement('div');if(sys)d.className='sys';
+ if(name){const b=document.createElement('b');b.textContent=name+' ';d.appendChild(b)}
+ d.appendChild(document.createTextNode(text));const log=$('chatlog');log.appendChild(d);
+ while(log.children.length>7)log.removeChild(log.firstChild);
+ setTimeout(()=>{d.style.opacity=.0;setTimeout(()=>d.remove(),600)},14000);
+}
+function tintFor(id){let h=0;for(const c of id)h=(h*31+c.charCodeAt(0))%360;const s=.5,v=1,f=n=>{const k=(n+h/60)%6;return v-v*s*Math.max(0,Math.min(k,4-k,1))};return [f(5),f(3),f(1)]}
+function dispatch(ev,pl){
+ if(!pl)return;
+ if(ev==='s')onRemoteState(pl);
+ else if(ev==='c'){chatAdd(cleanTxt(pl.n||'?'),cleanTxt(pl.t||''))}
+ else if(ev==='b')removeRemote(pl.i,true);
+}
+function onRemoteState(p){
+ if(!p||p.i===net.id||!Array.isArray(p.p)||!Array.isArray(p.q))return;
+ let r=net.remotes.get(p.i);
+ if(!r){const tag=document.createElement('div');tag.className='tag';$('tags').appendChild(tag);
+  r={name:'',p:p.p.slice(),rp:p.p.slice(),q:p.q.slice(),rq:p.q.slice(),v:[0,0,0],b:0,tint:tintFor(p.i),tag,last:0};net.remotes.set(p.i,r);chatAdd('',cleanTxt(p.n||'?')+' 님이 입장했습니다',true)}
+ r.name=cleanTxt(p.n||'?').slice(0,16);r.tag.textContent=r.name;
+ r.p=p.p;r.q=p.q;r.v=p.v||[0,0,0];r.b=p.b?1:0;r.last=performance.now();
+}
+function removeRemote(id,say){const r=net.remotes.get(id);if(!r)return;r.tag.remove();net.remotes.delete(id);if(say)chatAdd('',r.name+' 님이 나갔습니다',true)}
+function loadScript(src){return new Promise((res,rej)=>{if(window.supabase)return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Supabase 라이브러리를 불러오지 못했습니다 (인터넷 필요)'));document.head.appendChild(s)})}
+const sbCfg=()=>({url:($('n_url').value.trim()||SUPABASE_URL),key:($('n_key').value.trim()||SUPABASE_ANON_KEY)});
+async function sbClient(){
+ const {url,key}=sbCfg();if(!url||!key)throw new Error('Supabase URL / anon key가 필요합니다');
+ if(sbc&&sbc._u===url+key)return sbc;
+ await loadScript(SB_CDN);sbc=window.supabase.createClient(url,key,{realtime:{params:{eventsPerSecond:30}}});sbc._u=url+key;return sbc;
+}
+function emailOf(id){const ok=/^[a-z0-9_]{3,16}$/i.test(id);const local=ok?id.toLowerCase():'u'+Array.from(new TextEncoder().encode(id)).map(b=>b.toString(16).padStart(2,'0')).join('');return local+'@'+AUTH_DOMAIN}
+async function authDo(kind){
+ try{
+  const id=$('n_id').value.trim(),pw=$('n_pw').value;
+  if(id.length<2||id.length>16)throw new Error('아이디는 2~16자');if(pw.length<6)throw new Error('비밀번호는 6자 이상');
+  setNetMsg('처리 중…');const c=await sbClient();const email=emailOf(id);
+  const r=kind==='up'?await c.auth.signUp({email,password:pw,options:{data:{name:id}}}):await c.auth.signInWithPassword({email,password:pw});
+  if(r.error)throw r.error;
+  if(!r.data.session){setNetMsg('가입 완료. 바로 로그인되지 않으면 Supabase에서 Confirm email을 꺼 주세요');return}
+  net.user=id;$('n_name').value=id;$('n_name').readOnly=true;setNetMsg('로그인됨: '+id);lsSet('cs_id',id);
+ }catch(e){setNetMsg('오류: '+(e.message||e))}
+}
+function connectLocal(room){const bc=new BroadcastChannel('carsim:'+room);bc.onmessage=e=>{if(e.data)dispatch(e.data.ev,e.data.pl)};net.send=(ev,pl)=>bc.postMessage({ev,pl});net.close=()=>bc.close();net.mode='local'}
+async function connectSupabase(room){
+ const c=await sbClient();const ch=c.channel('carsim:'+room,{config:{broadcast:{self:false}}});
+ for(const ev of ['s','c','b'])ch.on('broadcast',{event:ev},m=>dispatch(ev,m.payload));
+ await new Promise((res,rej)=>{let done=false;const to=setTimeout(()=>{if(!done){done=true;rej(new Error('연결 시간 초과'))}},10000);
+  ch.subscribe(st=>{if(done)return;if(st==='SUBSCRIBED'){done=true;clearTimeout(to);res()}else if(st==='CHANNEL_ERROR'||st==='TIMED_OUT'){done=true;clearTimeout(to);rej(new Error('채널 오류: '+st))}})});
+ net.send=(ev,pl)=>{try{const p=ch.send({type:'broadcast',event:ev,payload:pl});if(p&&p.catch)p.catch(()=>{})}catch(e){}};
+ net.close=()=>{try{c.removeChannel(ch)}catch(e){}};net.mode='supabase';
+}
+async function netConnect(){
+ if(net.on){netDisconnect();return}
+ const room=($('n_room').value.trim()||'city').slice(0,30);
+ net.name=cleanTxt($('n_name').value.trim()||('손님'+Math.floor(Math.random()*900+100))).slice(0,12);$('n_name').value=net.name;
+ lsSet('cs_name',net.name);lsSet('cs_room',room);lsSet('cs_url',$('n_url').value.trim());lsSet('cs_key',$('n_key').value.trim());
+ try{
+  setNetMsg('접속 중…');
+  if(sbCfg().url&&sbCfg().key)await connectSupabase(room);else connectLocal(room);
+  net.on=true;$('n_conn').textContent='접속 끊기';$('netsum').textContent='🌐 온라인 · '+room;
+  setNetMsg(net.mode==='local'?'데모 모드: Supabase 설정이 없어 같은 브라우저의 다른 탭과만 연결됩니다':'접속됨 (Supabase)');
+  chatAdd('',net.name+' 님으로 방 "'+room+'"에 입장',true);
+ }catch(e){setNetMsg('오류: '+(e.message||e))}
+}
+function netDisconnect(){
+ try{if(net.send)net.send('b',{i:net.id})}catch(e){}
+ try{if(net.close)net.close()}catch(e){}
+ net.on=false;net.send=null;for(const id of [...net.remotes.keys()])removeRemote(id,false);
+ $('n_conn').textContent='접속';$('netsum').textContent='🌐 온라인 (오프라인)';setNetMsg('접속 종료');
+}
+function netTick(dtf){
+ const now=performance.now();
+ if(net.on&&now-net.last>=50){net.last=now;
+  net.send('s',{i:net.id,n:net.name,p:car.pos.map(v=>+v.toFixed(2)),q:car.q.map(v=>+v.toFixed(4)),v:car.v.map(v=>+v.toFixed(2)),b:car.boosting?1:0});}
+ for(const [id,r] of net.remotes){
+  const age=(now-r.last)/1000;if(age>4){removeRemote(id,true);continue}
+  const a=Math.min(age,.35);const pr=[r.p[0]+r.v[0]*a,r.p[1]+r.v[1]*a,r.p[2]+r.v[2]*a];
+  if(Math.hypot(pr[0]-r.rp[0],pr[1]-r.rp[1],pr[2]-r.rp[2])>60)r.rp=pr.slice();
+  const k=1-Math.exp(-dtf*14);r.rp=[lerp(r.rp[0],pr[0],k),lerp(r.rp[1],pr[1],k),lerp(r.rp[2],pr[2],k)];
+  const sgn=(r.rq[0]*r.q[0]+r.rq[1]*r.q[1]+r.rq[2]*r.q[2]+r.rq[3]*r.q[3])<0?-1:1;
+  let nq=[0,1,2,3].map(i=>lerp(r.rq[i],r.q[i]*sgn,k));const l=Math.hypot(...nq)||1;r.rq=nq.map(x=>x/l);
+  if(r.b){const R=quatToMat(r.rq),fw=mV(R,[0,0,1]);for(const sx of [-.5,.5]){const p=add(r.rp,mV(R,[sx,.28,-2.3]));
+   emit(p,add(mul(fw,-(14+Math.random()*10)),mul(r.v,.9)),.2+Math.random()*.15,.45+Math.random()*.35,0)}}
+ }
+ if(now-net.cnt>1000){net.cnt=now;if(net.on)setNetMsg((net.mode==='local'?'데모 모드 · ':'접속됨 · ')+(net.remotes.size+1)+'명')}
+}
+function updateTags(){
+ if(!lastVP)return;const W=innerWidth,H=innerHeight;
+ for(const r of net.remotes.values()){
+  const X=r.rp[0],Y=r.rp[1]+1.6,Z=r.rp[2],m=lastVP;
+  const cw=m[3]*X+m[7]*Y+m[11]*Z+m[15];
+  if(cw<=.1){r.tag.style.display='none';continue}
+  const cx=(m[0]*X+m[4]*Y+m[8]*Z+m[12])/cw,cy=(m[1]*X+m[5]*Y+m[9]*Z+m[13])/cw;
+  if(Math.abs(cx)>1.1||Math.abs(cy)>1.1){r.tag.style.display='none';continue}
+  r.tag.style.display='block';r.tag.style.transform='translate('+((cx*.5+.5)*W)+'px,'+((-cy*.5+.5)*H)+'px) translate(-50%,-100%)';
+ }
+}
+function bindNetUI(){
+ $('n_name').value=lsGet('cs_name');$('n_room').value=lsGet('cs_room')||'city';$('n_url').value=lsGet('cs_url');$('n_key').value=lsGet('cs_key');$('n_id').value=lsGet('cs_id');
+ for(const id of ['n_name','n_room','n_url','n_key','n_id','n_pw'])$(id).addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')e.target.blur()});
+ $('n_conn').addEventListener('click',netConnect);
+ $('n_in').addEventListener('click',()=>authDo('in'));$('n_up').addEventListener('click',()=>authDo('up'));
+ const ci=$('chatin');
+ ci.addEventListener('keydown',e=>{e.stopPropagation();
+  if(e.key==='Enter'){const t=cleanTxt(ci.value.trim());if(t){chatAdd(net.name||'나',t);if(net.on)net.send('c',{n:net.name,t})}ci.value='';ci.blur()}
+  else if(e.key==='Escape'){ci.value='';ci.blur()}});
+ ci.addEventListener('blur',()=>{ci.style.display='none'});
+ addEventListener('pagehide',()=>{try{if(net.on&&net.send)net.send('b',{i:net.id})}catch(e){}});
+}
+
 /* ============================================================ boot */
-window.__sim={setPose:(p,q)=>{car.pos=p;car.q=q;car.R=quatToMat(q);car.v=[0,0,0];car.w=[0,0,0]},car,keys,CFG,step:(n=1)=>{for(let i=0;i<n;i++)physStep()},get nitro(){return nitro},set nitro(v){nitro=v},ramps,boxes,resetCar,cam,surfaceAt,
+window.__sim={net,netConnect,loadMapFile,get MAPMODE(){return MAPMODE},setPose:(p,q)=>{car.pos=p;car.q=q;car.R=quatToMat(q);car.v=[0,0,0];car.w=[0,0,0]},car,keys,CFG,step:(n=1)=>{for(let i=0;i<n;i++)physStep()},get nitro(){return nitro},set nitro(v){nitro=v},ramps,boxes,resetCar,cam,surfaceAt,
  frame1:()=>{updateCamera(.016);render()},get sinceUse(){return sinceUse}};
 (async()=>{
  try{
-  bindSettings();buildCity();uploadWorld();setProg(.1);
+  bindSettings();bindMapUI();bindNetUI();buildCity();uploadWorld();setProg(.1);
   await loadCar();
   $('loading').style.display='none';
   resetCar(true);updateCamera(.5);cam.init=false;updateCamera(1);
