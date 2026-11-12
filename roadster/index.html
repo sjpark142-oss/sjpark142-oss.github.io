@@ -87,7 +87,7 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
   <h4>코인 · 경찰 · 독침</h4>
   공중 플립/롤/스핀 착지, 깨지는 상자·유리·에어 보너스로 🪙 획득<br>
   경찰차를 박으면 <b>수배</b>(코인 ×3) · 정면 충돌 +코인/증원 · 옆구리 피격 = 체포(-50🪙)<br>
-  <kbd>B</kbd> 독침 5개 구매(100🪙) · <kbd>Z</kbd> 독침 발사 · <kbd>G</kbd> 꽂힌 독침 폭파
+  <kbd>B</kbd> 독침 5개 구매(100🪙) · <kbd>Z</kbd> 독침 발사 · <kbd>G</kbd> 꽂힌 독침 폭파<br><kbd>N</kbd> 추적 미사일 3개 구매(300🪙) · <kbd>T</kbd> 미사일 발사 (위력 독침의 3배)
   <h4>기타</h4>
   <kbd>R</kbd> 처음 위치 · <kbd>F</kbd> 바로 세우기 · <kbd>C</kbd> 카메라 · <kbd>M</kbd> 소리
 </div>
@@ -100,7 +100,7 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
   <label>상승 질소 소모 (psi/초)<input id="s_lift" type="number" min="0" step="50" value="1500"></label>
   <label>공중회전 질소 소모 (psi/초)<input id="s_rot" type="number" min="0" step="50" value="0"></label>
 </details>
-<div id="gbar" class="panel">🪙 <b id="g_coin">0</b><span>💉 <b id="g_nd">0</b></span><span id="g_wanted"></span><button id="g_buy">B · 독침 5개 (100🪙)</button></div>
+<div id="gbar" class="panel">🪙 <b id="g_coin">0</b><span>💉 <b id="g_nd">0</b></span><span id="g_wanted"></span><span>🚀 <b id="g_ms">0</b></span><button id="g_buy">B · 독침 5개 (100🪙)</button><button id="g_buyms">N · 미사일 3개 (300🪙)</button></div>
 <div id="hud" class="panel">
   <div id="spd">0<small>km/h</small></div>
   <div id="nit">
@@ -349,7 +349,7 @@ function pointInBox(x,y,z){if(MAPMODE)return false;const c=cellAt(x,z);for(const
 
 /* ============================================================ vehicle physics */
 const M=3200,GR=14.5,INERT=[8300,8600,3000],COMY=0.45;
-const KS=260000,CS=23000;
+const KS=175000,CS=16000;   // 서스펜션 강성/감쇠 (줄이려면 값을 낮추세요)
 const tires=[[.72,-.495,1.54,1],[-.72,-.495,1.54,1],[.72,-.495,-1.62,0],[-.72,-.495,-1.62,0]];
 const skids=[[.7,-.15,2.3],[-.7,-.15,2.3],[.7,-.17,-2.1],[-.7,-.17,-2.1],
  [.6,.62,.3],[-.6,.62,.3],[.6,.62,-1.2],[-.6,.62,-1.2],
@@ -399,7 +399,7 @@ function physStep(){
   const r=mV(R,loc);const p=add(car.pos,r);
   const sf=surfaceAt(p[0],p[1],p[2],.55,1.3);let n=sf[1];
   let depth=sf[0]-p[1];
-  if(isTire&&WALL_ON){const wl=wallAt(p,upb,car.wb>.2?1.4:.4);if(wl&&wl.depth>depth){n=wl.n;depth=Math.min(wl.depth,.22);wallC++;wnAcc=add(wnAcc,wl.n)}}
+  if(isTire&&WALL_ON){const wl=wallAt(p,upb,car.wb>.2?1.4:(sFwd<55.5?.9:.4));if(wl&&wl.depth>depth){n=wl.n;depth=Math.min(wl.depth,.22);wallC++;wnAcc=add(wnAcc,wl.n)}}
   if(depth<=0)return;
   depth=Math.min(depth,1);
   const vp=pointVel(r);const vn=dot(vp,n);
@@ -495,7 +495,8 @@ function collideObstacles(){
     if(car.climbT>0)continue;
     if(hi<8&&dot(upb,bn)>.45)continue;
     const sp=len(car.v);
-    if(hi>=8&&sp>9&&keys.KeyW&&dot(fwdb,mul(bn,-1))>.65&&(b.x1-b.x0>3)){car.climbT=.7;car.climbN=bn;car.pos=add(car.pos,mul(bn,1.0));car.v=add(sub(car.v,mul(bn,dot(car.v,bn))),[0,sp*.85,0]);toast('벽 타기!');continue}
+    const slow=sp<55.5; // 200km/h 미만이면 벽에 닿는 즉시 항상 붙음
+    if(hi>=8&&(slow?(sp>2&&dot(fwdb,mul(bn,-1))>.2):(sp>9&&keys.KeyW&&dot(fwdb,mul(bn,-1))>.65))&&(b.x1-b.x0>3)){car.climbT=.7;car.climbN=bn;car.pos=add(car.pos,mul(bn,1.0));car.v=add(sub(car.v,mul(bn,dot(car.v,bn))),[0,Math.max(sp,14)*.85,0]);toast('벽 타기!');continue}
    }
    resolve(r,bn,best[0]);
   }
@@ -1062,12 +1063,14 @@ function sfx(k){
 }
 
 /* ============================================================ GAME */
-const GAME={coins:0,needles:0,wanted:0,escT:0,immune:0,lostT:0,spawnT:0,t:0};
-const feedEl=$('feed'),coinEl=$('g_coin'),ndEl=$('g_nd'),wEl=$('g_wanted'),wfx=$('wantedfx');
+const GAME={coins:0,needles:0,missiles:0,dev:false,pendArrest:false,wanted:0,escT:0,immune:0,lostT:0,spawnT:0,t:0};
+const feedEl=$('feed'),coinEl=$('g_coin'),ndEl=$('g_nd'),msEl=$('g_ms'),wEl=$('g_wanted'),wfx=$('wantedfx');
 function feed(t,cls){const d=document.createElement('div');d.textContent=t;if(cls)d.className=cls;feedEl.appendChild(d);while(feedEl.children.length>5)feedEl.removeChild(feedEl.firstChild);setTimeout(()=>{d.style.opacity=0;setTimeout(()=>d.remove(),500)},2200)}
-function saveGame(){lsSet('ts_coin',String(GAME.coins));lsSet('ts_nd',String(GAME.needles))}
-function addCoins(n,why){const m=GAME.wanted>0?3:1;const g=Math.round(n*m);GAME.coins+=g;saveGame();feed('+'+g+' 🪙  '+(why||'')+(m>1?'  (수배 ×3)':''),m>1?'w3':'');sfx('coin');return g}
-function buyNeedles(){if(GAME.coins<100){feed('코인이 부족합니다 (100🪙 필요)');return}GAME.coins-=100;GAME.needles+=5;saveGame();feed('독침 5개 구매 (-100🪙)','');sfx('coin')}
+function saveGame(){if(GAME.dev)return;lsSet('ts_coin',String(GAME.coins));lsSet('ts_nd',String(GAME.needles));lsSet('ts_ms',String(GAME.missiles))}
+function spend(n){if(GAME.dev)return true;if(GAME.coins<n){feed('코인이 부족합니다 ('+n+'🪙 필요)');return false}GAME.coins-=n;return true}
+function addCoins(n,why){const m=GAME.wanted>0?3:1;const g=Math.round(n*m);if(!GAME.dev)GAME.coins+=g;saveGame();feed('+'+g+' 🪙  '+(why||'')+(m>1?'  (수배 ×3)':''),m>1?'w3':'');sfx('coin');return g}
+function buyMissiles(){if(!spend(300))return;GAME.missiles+=3;saveGame();feed('추적 미사일 3개 구매 (-300🪙)','');sfx('coin')}
+function buyNeedles(){if(!spend(100))return;GAME.needles+=5;saveGame();feed('독침 5개 구매 (-100🪙)','');sfx('coin')}
 
 /* ---------- dynamic mesh sinks ---------- */
 function mkSink(nv){return {a:new Float32Array(nv*12),n:0,max:nv}}
@@ -1227,7 +1230,7 @@ function spawnPolice(burstMode){
 function startWanted(){if(GAME.wanted>0)return;GAME.wanted=1;GAME.lostT=0;GAME.spawnT=0;feed('🚨 수배! 코인 ×3','w3');sfx('wanted');for(let i=0;i<3;i++)spawnPolice()}
 function clearWanted(msg){GAME.wanted=0;GAME.lostT=0;for(const pc of POL)if(pc.chase){pc.chase=false;pc.retire=true;pc.life=0}if(msg)feed(msg)}
 function arrest(){
- GAME.immune=4;const lost=Math.min(50,GAME.coins);GAME.coins-=lost;saveGame();
+ GAME.immune=4;GAME.pendArrest=false;const lost=GAME.dev?0:Math.min(50,GAME.coins);GAME.coins-=lost;saveGame();
  feed('🚔 체포! 경찰서로 이동 (-50🪙)','bad');sfx('arrest');
  car.pos=[JAIL[0],surfaceAt(JAIL[0],3,JAIL[1],.5,.5)[0]+COMY+.3,JAIL[1]];car.q=quatFromAxisAngle([0,1,0],Math.PI);car.R=quatToMat(car.q);car.v=[0,0,0];car.w=[0,0,0];car.wb=0;car.climbT=0;nitro=CFG.cap;
  cam.init=false;PREV=null;ST.air=0;
@@ -1250,7 +1253,7 @@ function policeTick(dt){
   if(GAME.lostT>5)clearWanted('수배 해제 — 경찰을 따돌렸습니다');
  }
  for(let i=POL.length-1;i>=0;i--){
-  const pc=POL[i];pc.cd=Math.max(0,pc.cd-dt);pc.stun=Math.max(0,pc.stun-dt);
+  const pc=POL[i];if(!pc)continue;pc.cd=Math.max(0,pc.cd-dt);pc.stun=Math.max(0,pc.stun-dt);
   const dx=P[0]-pc.x,dz=P[2]-pc.z,dist=Math.hypot(dx,dz);
   if(!pc.parked){
    if(pc.retire){pc.life+=dt;pc.sp*=Math.exp(-2*dt);if(pc.life>8||dist>260){POL.splice(i,1);continue}}
@@ -1289,6 +1292,7 @@ function policeTick(dt){
   polBasis(pc);
   if(dist<9)policeContact(pc);
  }
+ if(GAME.pendArrest){GAME.pendArrest=false;arrest()}
 }
 function policeContact(pc){
  const R=car.R,c=pcCenter(pc),B=pc.B;const pvel=add(mul(B.f,pc.sp),pc.kv);let first=null,nres=0;
@@ -1314,7 +1318,7 @@ function policeContact(pc){
   if(loc[2]>=1.85&&dot(fP,B.f)<-.3&&closing>8){
    addCoins(40,'정면 충돌!');GAME.wanted=Math.min(5,GAME.wanted+1);feed('🚨 수배 레벨 '+GAME.wanted+' — 경찰 증원','bad');
    pc.stun=1.4;pc.sp=0;for(let i=0;i<2;i++)spawnPolice();cam.shake=.6;burst(pcCenter(pc),[.9,.9,.95],10,8);
-  }else if(side&&GAME.immune<=0&&(Math.abs(pc.sp)>5||closing>6)){arrest()}
+  }else if(side&&GAME.immune<=0&&(Math.abs(pc.sp)>5||closing>6)){GAME.pendArrest=true;GAME.immune=4}
  }
 }
 function drawPolice(s,t){
@@ -1380,6 +1384,8 @@ function onNetX(pl){
   if(NEEDLES.some(n=>n.id===pl.id))return;
   NEEDLES.push({id:pl.id,owner:pl.a,vid:pl.v,off:pl.o,dl:pl.d,born:performance.now()});
   if(pl.v===net.id){feed('💉 독침에 찔렸습니다!','bad');sfx('stab')}
+ }else if(pl.k==='mhit'){
+  if(pl.v!==net.id||GAME.dev)return;car.v=add(car.v,[(Math.random()-.5)*48,45,(Math.random()-.5)*48]);car.w=add(car.w,[(Math.random()-.5)*24,(Math.random()-.5)*18,(Math.random()-.5)*24]);feed('🚀 미사일 피격!','bad');explode(car.pos,true);
  }else if(pl.k==='boom'){
   const i=NEEDLES.findIndex(n=>n.id===pl.id);if(i<0)return;const n=NEEDLES[i];const w=entryWorld(n);NEEDLES.splice(i,1);if(!w)return;
   explode(w.p,false);
@@ -1398,12 +1404,47 @@ function drawNeedles(s,t){
   const bl=(t*6)%1<.5;dbox(s,add(w.p,mul(w.d,-1.85)),I3,[.1,.1,.1],bl?[1,.2,.1]:[.4,.05,.03],7)}
 }
 
+/* ---------- homing missile ---------- */
+const MIS=[];
+function fireMissile(){
+ if(GAME.missiles<=0){feed('미사일이 없습니다 — N 으로 구매 (300🪙 / 3개)');return}
+ GAME.missiles--;saveGame();
+ const f=mV(car.R,[0,0,1]);const d=norm(add(f,[0,.3,0]));
+ MIS.push({p:add(car.pos,add(mul(f,2.6),[0,.4,0])),d,sp:Math.max(30,dot(car.v,f)+22),t:0,tg:null});sfx('push');sfx('hiss');
+}
+function misTargets(){const L=[];for(const [id,r] of net.remotes)L.push({vid:id,get p(){return add(r.rp,[0,.8,0])}});
+ if(!MAPMODE)for(const pc of POL)if(!pc.parked&&!pc.retire)L.push({pc,get p(){return pcCenter(pc)}});return L}
+function misBoom(m){
+ const c=m.p;explode(c,true);cam.shake=Math.max(cam.shake,.4);
+ for(const pc of POL.slice()){if(Math.hypot(pc.x-c[0],pc.z-c[2])<9&&Math.abs(pc.y-c[1])<8)destroyPolice(pc,90)}
+ for(const [id,r] of net.remotes){if(Math.hypot(r.rp[0]-c[0],r.rp[1]-c[1],r.rp[2]-c[2])<9&&net.on)net.send('x',{k:'mhit',a:net.id,v:id})}
+ const dd=Math.hypot(car.pos[0]-c[0],car.pos[1]-c[1],car.pos[2]-c[2]);
+ if(dd<7&&!GAME.dev){const k=3*(1-dd/7);car.v=add(car.v,[(Math.random()-.5)*32*k,30*k,(Math.random()-.5)*32*k]);car.w=add(car.w,[(Math.random()-.5)*16*k,(Math.random()-.5)*12*k,(Math.random()-.5)*16*k])}
+}
+function missileTick(dt){
+ for(let i=MIS.length-1;i>=0;i--){const m=MIS[i];m.t+=dt;
+  if(!m.tg||(m.tg.pc&&POL.indexOf(m.tg.pc)<0)||(m.tg.vid&&!net.remotes.has(m.tg.vid))){
+   m.tg=null;let best=380;for(const tg of misTargets()){const p=tg.p;const q=sub(p,m.p);const dd=len(q);if(dd<best&&(m.t>.5||dot(norm(q),m.d)>.2)){best=dd;m.tg=tg}}}
+  if(m.tg&&m.t>.18){const want=norm(sub(m.tg.p,m.p));const ang=Math.acos(clamp(dot(m.d,want),-1,1));const k=Math.min(1,(2.6*dt)/Math.max(ang,1e-3));m.d=norm(add(mul(m.d,1-k),mul(want,k)))}
+  m.sp=Math.min(95,m.sp+55*dt);
+  m.p=add(m.p,mul(m.d,m.sp*dt));
+  emit(m.p.slice(),add(mul(m.d,-12),[(Math.random()-.5)*2,(Math.random()-.5)*2,(Math.random()-.5)*2]),.5,.5+Math.random()*.3,Math.random()<.5?0:1);
+  let hit=false;
+  if(m.p[1]<.3||pointInBox(m.p[0],m.p[1],m.p[2])||m.t>9)hit=true;
+  if(!hit)for(const tg of misTargets()){if(len(sub(tg.p,m.p))<3.2){hit=true;break}}
+  if(hit){MIS.splice(i,1);misBoom(m)}
+ }
+}
+function drawMissiles(s,t){
+ for(const m of MIS){const R=basisFromDir(m.d);dbox(s,m.p,R,[.13,.13,.7],[.85,.87,.9],3);dbox(s,add(m.p,mul(m.d,.75)),R,[.1,.1,.12],[1,.2,.1],7);dbox(s,add(m.p,mul(m.d,-.75)),R,[.09,.09,.3+Math.random()*.15],[1,.7,.2],7)}
+}
+
 /* ---------- per-frame ---------- */
 const dynSink=mkSink(60000),dynO=mkVAO();
 function gameTick(dtf){
  GAME.t+=dtf;
- breakTick(dtf);debTick(dtf);policeTick(dtf);needleTick(dtf);
- coinEl.textContent=GAME.coins;ndEl.textContent=GAME.needles;
+ breakTick(dtf);debTick(dtf);policeTick(dtf);needleTick(dtf);missileTick(dtf);
+ coinEl.textContent=GAME.dev?'∞':GAME.coins;ndEl.textContent=GAME.needles;msEl.textContent=GAME.missiles;
  wEl.textContent=GAME.wanted>0?('🚨 '+'★'.repeat(GAME.wanted)+'☆'.repeat(5-GAME.wanted)+'  ×3'):'';
  wfx.className=GAME.wanted>0?'on':'';
 }
@@ -1419,7 +1460,7 @@ function drawGame(vp){
   // station beacon
   const ph=(t*5)%1<.5;dbox(s,[-4,14.4,-100],I3,[1.2,.4,.6],ph?[1,.05,.05]:[.2,.02,.02],7);dbox(s,[4,14.4,-100],I3,[1.2,.4,.6],ph?[.05,.1,.2]:[.1,.3,1],7);
  }
- drawNeedles(s,t);
+ drawNeedles(s,t);drawMissiles(s,t);
  for(const d of deb){dbox(s,d.p,quatToMat(quatFromAxisAngle(d.ax,d.ang)),[d.s,d.s,d.s],d.col,3)}
  upSink(dynO,s);
  if(dynO.n){gl.bindVertexArray(dynO.vao);gl.drawArrays(gl.TRIANGLES,0,dynO.n)}
@@ -1511,7 +1552,7 @@ function frame(ts){
  while(acc>=dt&&n<20){physStep();acc-=dt;n++}
  if(n===20)acc=0;
  if(car.impact>6){cam.shake=Math.min(.8,car.impact*.03)}car.impact=0;
- gameTick(dtf);updateParticles(dtf);emitFX(dtf);updateCamera(dtf);updateHud();updateAudio();netTick(dtf);render();updateTags();
+ try{gameTick(dtf);updateParticles(dtf);emitFX(dtf);updateCamera(dtf);updateHud();updateAudio();netTick(dtf);render();updateTags()}catch(err){console.error(err);GAME.pendArrest=false}
  requestAnimationFrame(frame);
 }
 
@@ -1529,6 +1570,8 @@ addEventListener('keydown',e=>{
  if(e.code==='KeyB')buyNeedles();
  if(e.code==='KeyZ')fireNeedle();
  if(e.code==='KeyG')detonateMine();
+ if(e.code==='KeyN')buyMissiles();
+ if(e.code==='KeyT')fireMissile();
  if(e.code==='KeyM'){muted=!muted;toast(muted?'소리 끔':'소리 켬')}
 });
 addEventListener('keyup',e=>{keys[e.code]=false;
@@ -1538,6 +1581,7 @@ addEventListener('pointerdown',()=>{initAudio()});
 
 /* ============================================================ online (Supabase Realtime / local tabs) */
 const SUPABASE_URL='https://ubrsonmxhaacxchggufp.supabase.co',SUPABASE_ANON_KEY='sb_publishable_RvHYh78RdlsoG2kwY4XwRg_ObT0Hcaw';   // ← 여기에 Supabase URL / anon key를 넣으면 기본값으로 쓰입니다
+const DEV_ID='psj_1128개발자';             // 이 아이디로 로그인한 계정만 개발자(코인 무한)
 const AUTH_DOMAIN='carsim.app';                // 아이디 → 가짜 이메일(아이디@도메인) 변환용
 const SB_CDN='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
 const net={on:false,id:Math.random().toString(36).slice(2,10),name:'',send:null,close:null,mode:'',remotes:new Map(),last:0,cnt:0,user:null};
@@ -1587,7 +1631,7 @@ async function authDo(kind){
   const r=kind==='up'?await c.auth.signUp({email,password:pw,options:{data:{name:id}}}):await c.auth.signInWithPassword({email,password:pw});
   if(r.error)throw r.error;
   if(!r.data.session){setNetMsg('가입 완료. 바로 로그인되지 않으면 Supabase에서 Confirm email을 꺼 주세요');return}
-  net.user=id;$('n_name').value=id;$('n_name').readOnly=true;setNetMsg('로그인됨: '+id);lsSet('cs_id',id);
+  net.user=id;if(id===DEV_ID){GAME.dev=true;feed('🛠 개발자 계정 로그인 — 코인 무한')}else GAME.dev=false;$('n_name').value=id;$('n_name').readOnly=true;setNetMsg('로그인됨: '+id);lsSet('cs_id',id);
  }catch(e){setNetMsg('오류: '+(e.message||e))}
 }
 function connectLocal(room){const bc=new BroadcastChannel('carsim:'+room);bc.onmessage=e=>{if(e.data)dispatch(e.data.ev,e.data.pl)};net.send=(ev,pl)=>bc.postMessage({ev,pl});net.close=()=>bc.close();net.mode='local'}
@@ -1660,12 +1704,13 @@ function bindNetUI(){
 
 /* ============================================================ boot */
 window.__sim={net,netConnect,loadMapFile,get MAPMODE(){return MAPMODE},setPose:(p,q)=>{car.pos=p;car.q=q;car.R=quatToMat(q);car.v=[0,0,0];car.w=[0,0,0]},car,keys,CFG,step:(n=1)=>{for(let i=0;i<n;i++)physStep()},get nitro(){return nitro},set nitro(v){nitro=v},ramps,boxes,resetCar,cam,surfaceAt,
- GAME,POL,NEEDLES,ND,brk,bon,ST,addCoins,startWanted,arrest,fireNeedle,detonateMine,onNetX,spawnPolice,
+ GAME,MIS,fireMissile,buyMissiles,POL,NEEDLES,ND,brk,bon,ST,addCoins,startWanted,arrest,fireNeedle,detonateMine,onNetX,spawnPolice,
  run:(sec)=>{const n=Math.round(sec/dt);for(let i=0;i<n;i++){physStep();if(i%4===3){gameTick(dt*4);updateParticles(dt*4)}}},
  frame1:()=>{updateCamera(.016);render()},get sinceUse(){return sinceUse}};
 (async()=>{
  try{
-  GAME.coins=parseInt(lsGet('ts_coin'))||0;GAME.needles=parseInt(lsGet('ts_nd'))||0;$('g_buy').addEventListener('click',buyNeedles);bindSettings();bindMapUI();bindNetUI();buildCity();uploadWorld();setProg(.1);
+  GAME.coins=parseInt(lsGet('ts_coin'))||0;GAME.needles=parseInt(lsGet('ts_nd'))||0;GAME.missiles=parseInt(lsGet('ts_ms'))||0;$('g_buy').addEventListener('click',buyNeedles);$('g_buyms').addEventListener('click',buyMissiles);
+  bindSettings();bindMapUI();bindNetUI();buildCity();uploadWorld();setProg(.1);
   await loadCar();
   $('loading').style.display='none';
   resetCar(true);updateCamera(.5);cam.init=false;updateCamera(1);
