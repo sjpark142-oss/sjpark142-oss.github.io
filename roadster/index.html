@@ -11,7 +11,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0b1220;color:var(--tx
 canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 #speedfx{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .15s;background:radial-gradient(ellipse at center,transparent 45%,rgba(53,224,255,.18) 75%,rgba(255,154,60,.28) 100%)}
 .panel{position:fixed;background:var(--bg);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:12px 14px}
-#help{left:14px;top:14px;font-size:12.5px;line-height:1.65;max-width:290px}
+#help{max-height:calc(100vh - 28px);overflow:auto;left:14px;top:14px;font-size:12.5px;line-height:1.65;max-width:290px}
 #help b{color:var(--ac)}
 #help kbd{background:rgba(255,255,255,.12);border-radius:4px;padding:0 5px;font:inherit;font-size:11.5px;border:1px solid rgba(255,255,255,.18)}
 #help h4{margin:6px 0 2px;font-size:12px;letter-spacing:.08em;color:var(--ac2);text-transform:uppercase}
@@ -85,7 +85,7 @@ body.touch #toast{top:30%;font-size:18px}
 #tc .b.on{background:rgba(53,224,255,.45);border-color:var(--ac)}
 #tc .big{width:72px;height:72px}
 #tc .sm{width:44px;height:38px;border-radius:10px;font-size:17px}
-@media(max-width:760px){#help{display:none}#spd{font-size:38px;min-width:90px}}
+@media(max-width:760px){#help{max-height:calc(100vh - 28px);overflow:auto;display:none}#spd{font-size:38px;min-width:90px}}
 </style>
 </head>
 <body>
@@ -103,7 +103,7 @@ body.touch #toast{top:30%;font-size:18px}
   <h4>코인 · 경찰 · 독침</h4>
   공중 플립/롤/스핀 착지, 깨지는 상자·유리·에어 보너스로 🪙 획득<br>
   경찰차를 박으면 <b>수배</b>(코인 ×3) · 정면 충돌 +코인/증원 · 옆구리 피격 = 체포(-50🪙)<br>
-  <kbd>B</kbd> 독침 5개 구매(100🪙) · <kbd>Z</kbd> 독침 발사 · <kbd>G</kbd> 꽂힌 독침 폭파<br><kbd>N</kbd> 추적 미사일 3개 구매(300🪙) · <kbd>T</kbd> 미사일 발사 (위력 독침의 3배)
+  <kbd>B</kbd> 독침 5개 구매(100🪙) · <kbd>Z</kbd> 독침 발사 · <kbd>G</kbd> 꽂힌 독침 폭파<br><kbd>N</kbd> 추적 미사일 3개 구매(300🪙) · <kbd>T</kbd> 미사일 발사 (위력 독침의 3배)<br><kbd>1</kbd> 공항 · <kbd>2</kbd> 야구장 이동<br>✈ 비행기: 공항 발판 위에 서면 탑승 · <kbd>W</kbd><kbd>S</kbd> 피치 · <kbd>A</kbd><kbd>D</kbd> 롤(지상은 방향) · <kbd>Q</kbd><kbd>E</kbd> 방향 · <kbd>Shift</kbd> 추력↑ <kbd>Space</kbd> 추력↓ · <kbd>R</kbd> 내리기
   <h4>기타</h4>
   <kbd>R</kbd> 처음 위치 · <kbd>F</kbd> 바로 세우기 · <kbd>C</kbd> 카메라 · <kbd>M</kbd> 소리
 </div>
@@ -197,7 +197,7 @@ function bindSettings(){
 }
 
 /* ============================================================ world */
-const P=120,BLK=40,STREET=20;
+const P=120,BLK=48,STREET=24,K=BLK/40;   // 블록 96m · 도로 폭 24m (차 길이 4.9m 기준 현실 비율)
 const boxes=[],ramps=[];
 const CELL=40;const grid=new Map();
 const gkey=(i,j)=>i*100003+j;
@@ -263,24 +263,22 @@ const rampProfiles={
 
 function buildCity(){
  const rnd=mulberry32(20241106);
- const padPark=[.08,.2,.08],padConc=[.3,.3,.29];
+ const padPark=[.14,.38,.12],padConc=[.3,.3,.29];
  const pal=[[.62,.63,.66],[.45,.5,.58],[.74,.7,.62],[.33,.36,.42],[.55,.45,.4],[.7,.72,.76],[.25,.3,.38],[.8,.78,.74],[.38,.5,.55]];
  const stunt=new Set(['0,0','1,1']);
- for(let i=-5;i<=5;i++)for(let j=-5;j<=5;j++){
+ for(let i=-8;i<=8;i++)for(let j=-8;j<=8;j++){
   mute=false;const cx=P*i,cz=P*j,key=i+','+j;
   const isStunt=stunt.has(key);
   const rr=rnd();
-  const park=!isStunt&&(rr<.09||(i===1&&j===0)||(i===0&&j===1));
+  const park=!isStunt&&(rr<.11||(i===1&&j===0)||(i===0&&j===1)||(i===-3&&j===-2)||(i===3&&j===2)||(i===-2&&j===4)||(i===4&&j===-3)||(i===-5&&j===-5)||(i===6&&j===-1));
   const pad=park?padPark:padConc;
   quad([cx-BLK,.05,cz-BLK],[cx+BLK,.05,cz-BLK],[cx+BLK,.05,cz+BLK],[cx-BLK,.05,cz+BLK],[0,1,0],pad,5);
   if(key==='0,-1'||key==='-1,0')mute=true;
   if(isStunt||park){
-   if(park){ // small pavilion + trees as blocks
-    for(let k=0;k<14;k++){const tx=cx+(rnd()-.5)*66,tz=cz+(rnd()-.5)*66;solid(tx-.3,0,tz-.3,tx+.3,3.2,tz+.3,[.28,.2,.12],3);solid(tx-2,3.2,tz-2,tx+2,7.2+rnd()*2,tz+2,[.13+rnd()*.08,.36+rnd()*.12,.14],3,false);}
-   }
+   if(park)buildPark(cx,cz,rnd);
    continue;
   }
-  const dist=Math.hypot(i,j),f=Math.max(0,1-dist/6.5);
+  const dist=Math.hypot(i,j),f=Math.max(0,1-dist/9);
   const mode=rnd();
   const mk=(x0,z0,x1,z1)=>{
    let h=10+Math.pow(rnd(),2)*55;h*=(1+2.4*f);if(rnd()<.07+.12*f)h+=60+rnd()*90*(.5+f);
@@ -290,12 +288,12 @@ function buildCity(){
    if(tier){const ins=Math.min(6,(x1-x0)*.2);solid(x0+ins,h1,z0+ins,x1-ins,h,z1-ins,col.map(c=>c*.92),1);
     if(rnd()<.5){const mx=(x0+x1)/2,mz=(z0+z1)/2;solid(mx-.5,h,mz-.5,mx+.5,h+10+rnd()*22,mz+.5,[.7,.7,.72],3)}}
   };
-  if(mode<.55){const lot=36,g=4;for(const sx of [-1,1])for(const sz of [-1,1]){if(rnd()<.1)continue;
+  if(mode<.55){const lot=36*K,g=4*K;for(const sx of [-1,1])for(const sz of [-1,1]){if(rnd()<.1)continue;
     const x0=cx+(sx<0?-lot-g/2:g/2),z0=cz+(sz<0?-lot-g/2:g/2);const jx=rnd()*3,jz=rnd()*3;mk(x0+jx,z0+jz,x0+lot-jx*.5,z0+lot-jz*.5)}}
-  else if(mode<.85){mk(cx-34,cz-34,cx+34,cz+34)}
-  else{mk(cx-36,cz-36,cx+36,cz-2);mk(cx-36,cz+2,cx-2,cz+36);mk(cx+2,cz+2,cx+36,cz+36)}
+  else if(mode<.85){mk(cx-34*K,cz-34*K,cx+34*K,cz+34*K)}
+  else{mk(cx-36*K,cz-36*K,cx+36*K,cz-2*K);mk(cx-36*K,cz+2*K,cx-2*K,cz+36*K);mk(cx+2*K,cz+2*K,cx+36*K,cz+36*K)}
   // street lamps at block corners/sides
-  for(const [lx,lz] of [[-37,-37],[37,-37],[37,37],[-37,37],[0,-38.5],[0,38.5],[-38.5,0],[38.5,0]]){
+  for(const [lx0,lz0] of [[-37,-37],[37,-37],[37,37],[-37,37],[0,-38.5],[0,38.5],[-38.5,0],[38.5,0]]){const lx=lx0*K,lz=lz0*K;
    const x=cx+lx,z=cz+lz;solid(x-.25,0,z-.25,x+.25,9,z+.25,[.25,.27,.3],3);solid(x-.9,9,z-.9,x+.9,9.4,z+.9,[1,.9,.6],3,false)}
  }
  // stunt plaza (0,0): halfpipe + objects
@@ -333,10 +331,10 @@ function buildCity(){
  addRamp(-300,60,-90,16,rampProfiles.mega(20,60));
  // random extras on street segments
  const types=['wedge','kicker','quarter','table','hill','whoops'];
- for(let n=0;n<80;n++){
-  const ns=rnd()<.5;let kk=Math.floor(rnd()*12)-6;if(kk===0)continue;
-  const c=60+P*kk,m=Math.floor(rnd()*11)-5,t=P*m+(rnd()*50-25);
-  const off=(rnd()-.5)*8;
+ for(let n=0;n<170;n++){
+  const ns=rnd()<.5;let kk=Math.floor(rnd()*18)-9;if(kk===0)continue;
+  const c=60+P*kk,m=Math.floor(rnd()*17)-8,t=P*m+(rnd()*50-25);
+  const off=(rnd()-.5)*5;
   const x=ns?c+off:t,z=ns?t:c+off,yaw=ns?(rnd()<.5?0:180):(rnd()<.5?90:-90);
   const ty=types[Math.floor(rnd()*types.length)];let pr;
   switch(ty){case'wedge':pr=rampProfiles.wedge(2+rnd()*7,12+rnd()*12);break;case'kicker':pr=rampProfiles.kicker(3+rnd()*7,14+rnd()*12);break;
@@ -345,12 +343,231 @@ function buildCity(){
   addRamp(x,z,yaw,14,pr);
  }
  // giant sky ramp outside city (north +z)
- addRamp(60,780,0,22,rampProfiles.mega(60,140));
+ addRamp(60,1080,0,22,rampProfiles.mega(60,140));
  // ground quad (streets) : huge
- mute=false;buildGame();
- const G=3000;quad([-G,0,-G],[G,0,-G],[G,0,G],[-G,0,G],[0,1,0],[.1,.1,.11],0);
+ mute=false;buildGame();buildExtras();
+ const G=4500;quad([-G,0,-G],[G,0,-G],[G,0,G],[-G,0,G],[0,1,0],[.1,.1,.11],0);
 }
 function mulberry32(a){return mulberry(a)}
+
+
+/* ============================================================ loops (360° / 180° vertical loop) */
+const LOOPS=[];
+function addLoop(ox,oz,yawDeg,R,W,sweepDeg){
+ const a=yawDeg*D2R;const L={ox,oz,oy:0,dx:Math.sin(a),dz:Math.cos(a),lx:Math.cos(a),lz:-Math.sin(a),R,W,sweep:sweepDeg*D2R,full:sweepDeg>=359,st:0,top:false,t:0};
+ LOOPS.push(L);buildLoopMesh(L);return L}
+function buildLoopMesh(L){
+ const N=Math.max(14,Math.ceil(L.sweep/(2*Math.PI)*60)),hw=L.W/2,T=.9;
+ const P3=(th,w,rr)=>{const u=rr*Math.sin(th),y=L.R-rr*Math.cos(th);return [L.ox+L.dx*u+L.lx*w,L.oy+y,L.oz+L.dz*u+L.lz*w]};
+ const shell=[.42,.43,.48];
+ for(let i=0;i<N;i++){const t0=L.sweep*i/N,t1=L.sweep*(i+1)/N,tm=(t0+t1)/2;
+  const ni=[-Math.sin(tm)*L.dx,Math.cos(tm),-Math.sin(tm)*L.dz],no=[-ni[0],-ni[1],-ni[2]];
+  quad(P3(t0,-hw,L.R),P3(t1,-hw,L.R),P3(t1,hw,L.R),P3(t0,hw,L.R),ni,[1,.46,.06],2,[t0*L.R,-hw],[t1*L.R,-hw],[t1*L.R,hw],[t0*L.R,hw]);
+  quad(P3(t0,-hw,L.R+T),P3(t1,-hw,L.R+T),P3(t1,hw,L.R+T),P3(t0,hw,L.R+T),no,shell,3);
+  for(const sg of [-1,1]){const nn=[L.lx*sg,0,L.lz*sg];quad(P3(t0,sg*hw,L.R),P3(t1,sg*hw,L.R),P3(t1,sg*hw,L.R+T),P3(t0,sg*hw,L.R+T),nn,[.9,.9,.92],3)}
+ }
+ {const th=L.sweep;const nn=[Math.cos(th)*L.dx,Math.sin(th),Math.cos(th)*L.dz];quad(P3(th,-hw,L.R),P3(th,hw,L.R),P3(th,hw,L.R+T),P3(th,-hw,L.R+T),nn,shell,3)}
+ // 진입 화살표(발광 줄무늬)
+ for(let i=0;i<6;i++){const u=-8-i*5;addBox(L.ox+L.dx*u-L.lx*hw*.7-.1,.06,L.oz+L.dz*u-L.lz*hw*.7-.1,L.ox+L.dx*u+L.lx*hw*.7+.1,.12,L.oz+L.dz*u+L.lz*hw*.7+.1,[1,.8,.1],7)}
+}
+function loopUpdate(){
+ for(const L of LOOPS){
+  const rx=car.pos[0]-L.ox,rz=car.pos[2]-L.oz;
+  const u=rx*L.dx+rz*L.dz,w=rx*L.lx+rz*L.lz,y=car.pos[1]-L.oy;
+  const near=Math.abs(w)<L.W/2+.5,sp=car.v[0]*L.dx+car.v[2]*L.dz;
+  if(L.st===0){if(near&&u>-6&&u<1.5&&y<2.5&&sp>9){L.st=1;L.top=false;L.t=0}}
+  else if(L.st===1){
+   L.t+=dt;
+   if(y>1.5*L.R)L.top=true;
+   if(L.full){if(L.top&&u>-1&&y<L.R*.6)L.st=2}
+   else{let th=Math.atan2(u,L.R-y);if(th<0)th+=2*Math.PI;if(th>L.sweep+.1&&y>L.R*.4&&L.top)L.st=2;if(y>L.R*1.2&&u<0)L.top=true}
+   if(Math.abs(u)>L.R+10||Math.abs(w)>L.W/2+8||y>2*L.R+10||L.t>14)L.st=0;
+  }else{ if(Math.abs(u)>L.R+8||Math.abs(w)>L.W/2+4||y>2*L.R+12)L.st=0 }
+ }
+}
+function loopContact(p){
+ let best=null;
+ for(const L of LOOPS){
+  if(L.st!==1)continue;
+  const rx=p[0]-L.ox,rz=p[2]-L.oz;const u=rx*L.dx+rz*L.dz,w=rx*L.lx+rz*L.lz,yy=p[1]-L.oy-L.R;
+  if(Math.abs(w)>L.W/2+.2||Math.abs(u)>L.R+1.5||yy>L.R+1.5)continue;
+  const rho=Math.hypot(u,yy),depth=rho-L.R;if(depth<=0||depth>1.2)continue;
+  let th=Math.atan2(u,-yy);if(th<0)th+=2*Math.PI;if(th>L.sweep)continue;
+  if(u<0&&!L.top)continue;
+  const n=[-(u/rho)*L.dx,-yy/rho,-(u/rho)*L.dz];
+  if(!best||depth>best.depth)best={depth,n};
+ }
+ return best;
+}
+
+/* ============================================================ airplane */
+const PLN={list:[],act:null,armed:true};
+function addPlane(x,z,yaw,col){const pl={sx:x,sz:z,syaw:yaw,pos:[x,1.4,z],q:quatFromAxisAngle([0,1,0],yaw),R:null,v:[0,0,0],wl:[0,0,0],thr:0,idle:0,dead:0,spin:0,col,pad:[x-9*Math.cos(yaw),z+9*Math.sin(yaw)]};pl.R=quatToMat(pl.q);PLN.list.push(pl)}
+function planeReset(pl){pl.pos=[pl.sx,1.4,pl.sz];pl.q=quatFromAxisAngle([0,1,0],pl.syaw);pl.R=quatToMat(pl.q);pl.v=[0,0,0];pl.wl=[0,0,0];pl.thr=0;pl.idle=0;pl.dead=0}
+function teleport(x,z,yawDeg,name){if(PLN.act)exitPlane();const gh=surfaceAt(x,50,z,50,50)[0];car.pos=[x,gh+.7,z];car.q=quatFromAxisAngle([0,1,0],yawDeg*D2R);car.R=quatToMat(car.q);car.v=[0,0,0];car.w=[0,0,0];car.wb=0;car.climbT=0;cam.init=false;PLN.armed=false;toast(name)}
+function boardPlane(pl){PLN.act=pl;pl.idle=0;car.v=[0,0,0];car.w=[0,0,0];cam.pp=null;toast('✈ 탑승! Shift 추력↑ · W/S 피치 · A/D 롤 · R 내리기');sfx('coin')}
+function exitPlane(){
+ const pl=PLN.act;if(!pl)return;PLN.act=null;PLN.armed=false;pl.idle=0;cam.init=false;
+ const R=pl.R,gh=surfaceAt(pl.pos[0],pl.pos[1],pl.pos[2],2,2)[0],onG=pl.pos[1]<gh+2;
+ const side=mV(R,[-9,0,0]),fw=mV(R,[0,0,1]),yaw=Math.atan2(fw[0],fw[2]);
+ car.q=quatFromAxisAngle([0,1,0],yaw);car.R=quatToMat(car.q);car.w=[0,0,0];car.wb=0;car.climbT=0;
+ if(onG){car.pos=[pl.pos[0]+side[0],gh+.7,pl.pos[2]+side[2]];car.v=[0,0,0];toast('비행기에서 내렸어요')}
+ else{car.pos=add(pl.pos,[0,-2.5,0]);car.v=pl.v.slice();toast('비행기에서 뛰어내렸어요!')}
+}
+function planeCrash(pl){
+ explode(pl.pos,true);explode(add(pl.pos,[2,1,0]),true);burst(pl.pos,[.9,.35,.1],26,14);cam.shake=1;
+ const wasAct=PLN.act===pl;pl.dead=5;
+ if(wasAct){PLN.act=null;PLN.armed=false;cam.init=false;car.q=quatFromAxisAngle([0,1,0],pl.syaw);car.R=quatToMat(car.q);car.pos=[pl.pad[0]-6*Math.cos(pl.syaw),.7,pl.pad[1]+6*Math.sin(pl.syaw)];car.v=[0,0,0];car.w=[0,0,0];car.wb=0;feed('✈ 추락! 공항으로 복귀','bad')}
+}
+function planeStep(dt){
+ const pl=PLN.act;if(!pl)return;
+ const R=pl.R,f=mV(R,[0,0,1]),u=mV(R,[0,1,0]),x=mV(R,[1,0,0]),k=keys;
+ pl.thr=clamp(pl.thr+((k.ShiftLeft||k.ShiftRight)?.5:0)*dt-(k.Space?.7:0)*dt,0,1);
+ const gh=surfaceAt(pl.pos[0],pl.pos[1],pl.pos[2],2.5,2.5)[0];
+ const onG=pl.pos[1]<=gh+1.5;const vf=dot(pl.v,f);
+ const pit=(k.KeyW?1:0)-(k.KeyS?1:0),rol=(k.KeyD?1:0)-(k.KeyA?1:0),yw=(k.KeyQ?1:0)-(k.KeyE?1:0);
+ const sc=clamp(vf/30,.3,1);let tgt;
+ if(onG){const sg=clamp(vf/10,0,1);tgt=[(pit<0&&vf>26)?-.7:0,(((k.KeyA?1:0)-(k.KeyD?1:0))*.7+yw*.5)*sg,0]}
+ else tgt=[pit*1.0*sc,yw*.55*sc,rol*2.0*sc];
+ const kk=Math.min(1,dt*6);pl.wl=[lerp(pl.wl[0],tgt[0],kk),lerp(pl.wl[1],tgt[1],kk),lerp(pl.wl[2],tgt[2],kk)];
+ let w=mV(R,pl.wl);
+ if(onG&&!(pit<0&&vf>26)){const ax=cross(u,[0,1,0]);w=add(w,mul(ax,4))}
+ const q=pl.q,dq=[.5*dt*(w[0]*q[3]+w[1]*q[2]-w[2]*q[1]),.5*dt*(w[1]*q[3]+w[2]*q[0]-w[0]*q[2]),.5*dt*(w[2]*q[3]+w[0]*q[1]-w[1]*q[0]),-.5*dt*(w[0]*q[0]+w[1]*q[1]+w[2]*q[2])];
+ let nq=[q[0]+dq[0],q[1]+dq[1],q[2]+dq[2],q[3]+dq[3]];const nl=Math.hypot(...nq);pl.q=nq.map(v=>v/nl);pl.R=quatToMat(pl.q);
+ let a=[0,-9.8,0];
+ a=add(a,mul(f,pl.thr*24*(vf<0?.3:1)));
+ const sp=len(pl.v);a=add(a,mul(pl.v,-.0036*sp));
+ a=add(a,mul(u,vf>0?clamp(vf*vf*.0048,0,21):0));
+ a=add(a,mul(x,-dot(pl.v,x)*(onG?12:2.5)));
+ if(onG&&Math.abs(vf)>.1)a=add(a,mul(f,-Math.sign(vf)*Math.min(Math.abs(vf)/dt*.3,pl.thr<.05?1.6:.6)));
+ pl.v=add(pl.v,mul(a,dt));pl.pos=add(pl.pos,mul(pl.v,dt));
+ // ground
+ const gh2=surfaceAt(pl.pos[0],pl.pos[1],pl.pos[2],2.5,2.5)[0];
+ if(pl.pos[1]<gh2+1.4){
+  const sink=-pl.v[1];const uy=dot(pl.R?mV(pl.R,[0,1,0]):u,[0,1,0]);
+  if(sink>11||(uy<.55&&len(pl.v)>6)){planeCrash(pl);return}
+  pl.pos[1]=gh2+1.4;if(pl.v[1]<0)pl.v[1]=0;
+ }
+ const R2=pl.R;
+ for(const loc of [[0,0,4.8],[0,.3,-4.6],[7.3,0,.4],[-7.3,0,.4],[0,1.2,0]]){const p=add(pl.pos,mV(R2,loc));if(pointInBox(p[0],p[1],p[2])){planeCrash(pl);return}}
+}
+function planeTick(dt){
+ if(!PLN.armed){let m=1e9;for(const pl of PLN.list)m=Math.min(m,Math.hypot(car.pos[0]-pl.pad[0],car.pos[2]-pl.pad[1]));if(m>9)PLN.armed=true}
+ for(const pl of PLN.list){
+  if(pl.dead>0){pl.dead-=dt;if(pl.dead<=0)planeReset(pl);continue}
+  if(PLN.act===pl){pl.spin+=(8+pl.thr*80)*dt;continue}
+  pl.spin+=Math.max(0,3-pl.spin%1)*0;
+  if(!PLN.act&&PLN.armed){const dx=car.pos[0]-pl.pad[0],dz=car.pos[2]-pl.pad[1];if(dx*dx+dz*dz<12&&car.pos[1]<4&&len(car.v)<16){boardPlane(pl);continue}}
+  if(pl.pos[1]>1.5){pl.v=add(pl.v,[0,-9.8*dt,0]);pl.pos=add(pl.pos,mul(pl.v,dt));const g=surfaceAt(pl.pos[0],pl.pos[1],pl.pos[2],2,2)[0];if(pl.pos[1]<g+1.4){pl.pos[1]=g+1.4;pl.v=[0,0,0]}}
+  else pl.v=mul(pl.v,Math.exp(-dt*1.2));
+  pl.pos=add(pl.pos,mul([pl.v[0],0,pl.v[2]],dt));
+  const away=Math.hypot(pl.pos[0]-pl.sx,pl.pos[2]-pl.sz)>5||pl.pos[1]>3;
+  if(away){pl.idle+=dt;if(pl.idle>12)planeReset(pl)}else pl.idle=0;
+ }
+}
+function drawPlanes(s,t){
+ if(MAPMODE)return;
+ for(const pl of PLN.list){
+  if(pl.dead>0)continue;
+  if(Math.hypot(pl.pos[0]-car.pos[0],pl.pos[2]-car.pos[2])>900&&PLN.act!==pl)continue;
+  const R=pl.R,p=pl.pos,ax=[R[0],R[3],R[6]],ay=[R[1],R[4],R[7]],az=[R[2],R[5],R[8]];
+  const at=(x,y,z)=>add(p,add(add(mul(ax,x),mul(ay,y)),mul(az,z)));
+  const wh=[.93,.94,.96],rd=pl.col;
+  dbox(s,p,R,[.8,.85,4.2],wh,3);
+  dbox(s,at(0,.1,4.9),R,[.55,.6,.8],[.75,.77,.8],3);
+  dbox(s,at(0,.95,1.3),R,[.62,.4,1.1],[.22,.42,.7],3);
+  dbox(s,at(0,-.1,.5),R,[7.4,.12,1.35],wh,3);
+  dbox(s,at(0,-.08,.5),R,[7.45,.125,.35],rd,3);
+  dbox(s,at(0,.35,-4.2),R,[2.8,.1,.8],wh,3);
+  dbox(s,at(0,1.4,-4.0),R,[.1,1.4,.9],rd,3);
+  for(const sx of [-1.5,1.5]){dbox(s,at(sx,-.6,.7),R,[.06,.45,.06],[.5,.5,.55],3);dbox(s,at(sx,-1.05,.7),R,[.16,.34,.34],[.08,.08,.08],3)}
+  dbox(s,at(0,-.55,3.3),R,[.06,.4,.06],[.5,.5,.55],3);dbox(s,at(0,-1.0,3.3),R,[.14,.3,.3],[.08,.08,.08],3);
+  const c=Math.cos(pl.spin),sn=Math.sin(pl.spin);const a=add(mul(ax,c),mul(ay,sn)),b=add(mul(ax,-sn),mul(ay,c));
+  dbox(s,at(0,0,5.75),[a[0],b[0],az[0],a[1],b[1],az[1],a[2],b[2],az[2]],[.1,1.9,.06],[.12,.12,.12],3);
+  dbox(s,at(0,0,5.7),R,[.2,.2,.25],rd,3);
+  if(PLN.act!==pl){const pu=.6+.4*Math.sin(t*4);const g=surfaceAt(pl.pad[0],50,pl.pad[1],50,50)[0];
+   dbox(s,[pl.pad[0],g+.12,pl.pad[1]],I3,[2.4,.07,2.4],[0,.9*pu,1*pu],7);dbox(s,[pl.pad[0],g+4,pl.pad[1]],I3,[.12,4,.12],[0,.8,1],7)}
+ }
+}
+
+/* ============================================================ parks / airport / baseball stadium */
+const F=(x0,z0,x1,z1,y,col,k)=>quad([x0,y,z0],[x1,y,z0],[x1,y,z1],[x0,y,z1],[0,1,0],col,k);
+const strip=(ax,az,bx,bz,w,y,col,k)=>{const dx=bx-ax,dz=bz-az,l=Math.hypot(dx,dz),nx=-dz/l*w/2,nz=dx/l*w/2;quad([ax+nx,y,az+nz],[bx+nx,y,bz+nz],[bx-nx,y,bz-nz],[ax-nx,y,az-nz],[0,1,0],col,k)};
+function tree(x,z,rnd,collide){
+ const h=5+rnd()*4,v=rnd();const cc=v<.2?[.7,.35,.1]:v<.35?[.55,.5,.12]:[.1+rnd()*.07,.34+rnd()*.14,.12];
+ solid(x-.35,0,z-.35,x+.35,h*.55,z+.35,[.3,.2,.12],3,collide);
+ solid(x-2.4,h*.45,z-2.4,x+2.4,h*.45+3,z+2.4,cc,3,false);solid(x-1.6,h*.45+3,z-1.6,x+1.6,h*.45+5.2,z+1.6,cc.map(c=>c*1.08),3,false);
+}
+function buildPark(cx,cz,rnd){
+ const B=BLK-3;
+ const path=[.66,.62,.54];
+ F(cx-B,cz-3,cx+B,cz+3,.07,path,3);F(cx-3,cz-B,cx+3,cz+B,.07,path,3);
+ const pondC=[cx-26,cz-26];F(pondC[0]-13,pondC[1]-10,pondC[0]+13,pondC[1]+10,.075,[.12,.38,.62],3);
+ for(let a=0;a<12;a++){const an=a/12*6.283;addBox(pondC[0]+Math.cos(an)*14-.6,0,pondC[1]+Math.sin(an)*11-.6,pondC[0]+Math.cos(an)*14+.6,.5,pondC[1]+Math.sin(an)*11+.6,[.45,.45,.46],3)}
+ // 분수
+ solid(cx-3.5,0,cz-3.5,cx+3.5,.9,cz+3.5,[.6,.6,.64],3);addBox(cx-2.8,.9,cz-2.8,cx+2.8,1.05,cz+2.8,[.2,.5,.85],3);addBox(cx-.3,1,cz-.3,cx+.3,3.6,cz+.3,[.7,.85,1],7);
+ // 축구장
+ const sx=cx+26,sz=cz+24;F(sx-16,sz-10,sx+16,sz+10,.075,[.18,.52,.16],5);
+ for(const [x0,z0,x1,z1] of [[-16,-10,16,-9.8],[-16,9.8,16,10],[-16,-10,-15.8,10],[15.8,-10,16,10],[-.1,-10,.1,10]])F(sx+x0,sz+z0,sx+x1,sz+z1,.09,[1,1,1],3);
+ for(const sg of [-1,1])solid(sx+sg*16-.2,0,sz-2.2,sx+sg*16+.2,2.2,sz+2.2,[.9,.9,.92],3,false);
+ // 벤치·가로등
+ for(let i=0;i<8;i++){const bx=cx+(i%2?1:-1)*(10+(i>>1)*9),bz=cz+(i%2?-4.5:4.5);solid(bx-1.1,0,bz-.3,bx+1.1,.5,bz+.3,[.45,.28,.14],3,false);solid(bx-1.1,.5,bz-.35,bx+1.1,1,bz-.2,[.45,.28,.14],3,false)}
+ for(const [lx,lz] of [[-14,-4],[14,4],[-4,14],[4,-14],[30,0],[-30,0],[0,30],[0,-30]]){solid(cx+lx-.15,0,cz+lz-.15,cx+lx+.15,5,cz+lz+.15,[.25,.27,.3],3,false);addBox(cx+lx-.5,5,cz+lz-.5,cx+lx+.5,5.3,cz+lz+.5,[1,.95,.7],7)}
+ // 나무
+ let n=0;for(let t=0;t<70&&n<28;t++){const x=cx+(rnd()-.5)*2*B,z=cz+(rnd()-.5)*2*B;
+  if(Math.abs(x-cx)<5||Math.abs(z-cz)<5)continue;if(Math.abs(x-pondC[0])<17&&Math.abs(z-pondC[1])<14)continue;if(Math.abs(x-sx)<20&&Math.abs(z-sz)<14)continue;
+  tree(x,z,rnd,true);n++}
+}
+function buildExtras(){
+ const rnd=mulberry32(5150);
+ // ---------------- 공항 (동쪽 x≈1300)
+ const AX=1300,asph=[.13,.13,.14],conc=[.42,.42,.44],white=[.93,.93,.9],yel=[.95,.75,.1];
+ F(AX-25,-700,AX+25,700,.06,asph,3);
+ F(AX-24,-700,AX-23.4,700,.075,white,3);F(AX+23.4,-700,AX+24,700,.075,white,3);
+ for(let z=-680;z<680;z+=36)F(AX-.5,z,AX+.5,z+18,.075,white,3);
+ for(const sg of [-1,1]){const za=sg>0?676:-690;for(let i=0;i<8;i++){const x=AX-20+i*5.2;F(x,za,x+2.2,za+14,.075,white,3)}}
+ for(let z=-420;z<=420;z+=120){F(AX-12,z,AX-9,z+22,.075,white,3);F(AX+9,z,AX+12,z+22,.075,white,3)}
+ for(let z=-700;z<=700;z+=50)for(const sg of [-1,1])addBox(AX+sg*25.6-.3,.05,z-.3,AX+sg*25.6+.3,.55,z+.3,[1,.9,.5],7);
+ F(AX-85,-170,AX-25,170,.055,conc,3);F(AX-55.3,-170,AX-54.7,170,.07,yel,3);
+ for(const z of [-100,0,100]){F(AX-46,z-14,AX-30,z-13.8,.07,yel,3);F(AX-46,z+13.8,AX-30,z+14,.07,yel,3)}
+ F(1008,48,1135,72,.056,[.1,.1,.11],3);for(let x=1010;x<1135;x+=12)F(x,59.85,x+6,60.15,.07,yel,3);
+ solid(AX-165,0,-150,AX-115,12,150,[.78,.8,.84],1);addBox(AX-114.8,4,-148,AX-114.6,9,148,[.3,.55,.75],6);
+ solid(AX-150,0,170,AX-136,34,184,[.8,.8,.82],1);solid(AX-154,34,166,AX-132,40,188,[.3,.5,.7],3);addBox(AX-150,40,174,AX-136,41,180,[1,.2,.2],7);
+ solid(AX-165,0,-300,AX-105,16,-240,[.55,.58,.62],1);solid(AX-165,0,240,AX-105,16,300,[.55,.58,.62],1);
+ const pcols=[[.8,.1,.1],[.1,.35,.8],[.95,.6,.05]];
+ [-100,0,100].forEach((z,i)=>addPlane(AX-38,z,0,pcols[i]));
+ // ---------------- 야구장 (서쪽 x≈-1350)
+ const SX=-1350,SZ=0,FH=80;
+ F(SX-FH,SZ-FH,SX+FH,SZ+FH,.06,[.12,.46,.12],5);
+ for(let i=0;i<8;i+=2)F(SX-FH,SZ-FH+i*20,SX+FH,SZ-FH+i*20+20,.065,[.1,.4,.1],5);
+ const dm=[[0,-46],[30,-16],[0,14],[-30,-16]];
+ quad(...dm.map(([x,z])=>[SX+x,.075,SZ+z]),[0,1,0],[.62,.42,.25],5);
+ const dg=[[0,-36],[19,-16],[0,4],[-19,-16]];quad(...dg.map(([x,z])=>[SX+x,.08,SZ+z]),[0,1,0],[.12,.46,.12],5);
+ F(SX-8,SZ-54,SX+8,SZ-38,.078,[.62,.42,.25],5);F(SX-4,SZ-18,SX+4,SZ-10,.09,[.62,.42,.25],5);
+ strip(SX,SZ-46,SX+FH,SZ+FH-46+0,.4,.1,white,3);strip(SX,SZ-46,SX-FH,SZ+FH-46,.4,.1,white,3);
+ for(const [x,z] of [[30,-16],[0,14],[-30,-16]])addBox(SX+x-.6,.08,SZ+z-.6,SX+x+.6,.3,SZ+z+.6,white,3);
+ addBox(SX-.5,.08,SZ-46.5,SX+.5,.12,SZ-45.5,white,3);
+ for(let t=0;t<5;t++){const r0=FH+t*3.4,r1=r0+3.4,h=(t+1)*1.7,col=t%2?[.15,.25,.6]:[.7,.12,.12];
+  for(const sg of [-1,1]){
+   solid(SX-r1,0,SZ+sg*r0-(sg<0?3.4:0)+(sg>0?0:0),SX-12,h,SZ+sg*r0+(sg>0?3.4:0),col,3);
+   solid(SX+12,0,SZ+sg*r0-(sg<0?3.4:0),SX+r1,h,SZ+sg*r0+(sg>0?3.4:0),col,3);
+   solid(SX+sg*r0-(sg<0?3.4:0),0,SZ-r0,SX+sg*r0+(sg>0?3.4:0),h,SZ+r0,col,3);
+  }}
+ for(const sg of [-1,1]){const r0=FH+17,r1=r0+4;
+  solid(SX-r1,0,SZ+sg*r0-(sg<0?4:0),SX-12,14,SZ+sg*r0+(sg>0?4:0),[.55,.57,.62],1);
+  solid(SX+12,0,SZ+sg*r0-(sg<0?4:0),SX+r1,14,SZ+sg*r0+(sg>0?4:0),[.55,.57,.62],1);
+  solid(SX+sg*r0-(sg<0?4:0),0,SZ-r0,SX+sg*r0+(sg>0?4:0),14,SZ+r0,[.55,.57,.62],1)}
+ F(SX-12,SZ-140,SX+12,SZ-96,.056,[.14,.14,.15],3);F(SX-12,SZ+96,SX+12,SZ+140,.056,[.14,.14,.15],3);
+ for(const [lx,lz] of [[-112,-112],[112,-112],[112,112],[-112,112]]){solid(SX+lx-1,0,SZ+lz-1,SX+lx+1,46,SZ+lz+1,[.3,.32,.36],3);addBox(SX+lx-6,46,SZ+lz-1,SX+lx+6,47.5,SZ+lz+1,[1,.97,.8],7)}
+ solid(SX-26,14,SZ+93,SX+26,30,SZ+96,[.1,.1,.12],3);for(let i=0;i<5;i++)addBox(SX-24+i*10,17,SZ+92.9,SX-16+i*10,27,SZ+92.95,[.1,.9,.3],7);
+ // 필드 안: 360° 루프 2개 + 180° 루프 + 램프
+ addLoop(SX-36,SZ-20,0,11,9,360);
+ addLoop(SX+36,SZ-20,0,12,9,180);
+ addLoop(SX,SZ+44,180,11,9,360);
+ addRamp(SX-62,SZ+14,0,10,rampProfiles.kicker(4,16));addRamp(SX+62,SZ+14,0,10,rampProfiles.kicker(4,16));
+ addRamp(SX-62,SZ-60,90,12,rampProfiles.quarter(9,70));addRamp(SX+62,SZ-60,-90,12,rampProfiles.quarter(9,70));
+ addRamp(SX,SZ-70,0,14,rampProfiles.table(3.5,12,12,12));
+}
 
 /* ---------- surface queries ---------- */
 const UP=[0,1,0];
@@ -377,7 +594,7 @@ car.R=quatToMat(car.q);
 let nitro=5000,sinceUse=99,WALL_ON=true;
 const keys={};
 function resetCar(full=true){
- if(full){car.pos=SPAWN.slice();car.q=quatFromAxisAngle([0,1,0],0);car.v=[0,0,0];car.w=[0,0,0];nitro=CFG.cap;sinceUse=99;car.wb=0;car.climbT=0;ST.air=0;PREV=null;}
+ if(full){car.pos=SPAWN.slice();car.q=quatFromAxisAngle([0,1,0],0);car.v=[0,0,0];car.w=[0,0,0];nitro=CFG.cap;sinceUse=99;car.wb=0;car.climbT=0;ST.air=0;PREV=null;for(const L of LOOPS)L.st=0}
  else{const f=mV(car.R,[0,0,1]);const yaw=Math.atan2(f[0],f[2]);car.q=quatFromAxisAngle([0,1,0],yaw);car.w=[0,0,0];car.wb=0;car.climbT=0;car.pos[1]+=3;car.v=mul(car.v,.3)}
  car.R=quatToMat(car.q);
 }
@@ -387,6 +604,7 @@ function pointVel(r){return add(car.v,cross(car.w,r))}
 
 const dt=1/240;
 function physStep(){
+ if(PLN.act){planeStep(dt);return}
  const R=car.R;
  const throttleIn=(keys.KeyW?1:0)-(keys.KeyS?1:0);
  const steerIn=(keys.KeyA?1:0)-(keys.KeyD?1:0);
@@ -409,12 +627,14 @@ function physStep(){
  let T=[0,0,0];
  const addF=(f,r)=>{F=add(F,f);T=add(T,cross(r,f))};
  // contacts
+ loopUpdate();
  let tireContacts=0,slipMax=0,wallC=0,wnAcc=[0,0,0];
  const sFwd=dot(car.v,fwd);
  const processPoint=(loc,isTire,front)=>{
   const r=mV(R,loc);const p=add(car.pos,r);
   const sf=surfaceAt(p[0],p[1],p[2],.55,1.3);let n=sf[1];
   let depth=sf[0]-p[1];
+  if(LOOPS.length){const lc=loopContact(p);if(lc&&lc.depth>depth){n=lc.n;depth=lc.depth;if(isTire){wallC++;wnAcc=add(wnAcc,lc.n)}}}
   if(isTire&&WALL_ON){const wl=wallAt(p,upb,car.wb>.2?1.4:(sFwd<55.5?.9:.4));if(wl&&wl.depth>depth){n=wl.n;depth=Math.min(wl.depth,.22);wallC++;wnAcc=add(wnAcc,wl.n)}}
   if(depth<=0)return;
   depth=Math.min(depth,1);
@@ -506,6 +726,7 @@ function collideObstacles(){
    let best=cand[0];for(const cd of cand)if(cd[0]<best[0])best=cd;
    if(best[1][1]===1&&best[0]>.5){// inside deep from above: choose side instead
     let b2=cand[0];for(let i=0;i<4;i++)if(cand[i][0]<b2[0])b2=cand[i];best=b2}
+   if(best[1][1]===1&&best[0]<.55)continue;   // 지붕/윗면은 스프링(surfaceAt)이 처리 — 충돌 마찰이 바퀴를 멈추던 버그 수정
    const bn=best[1];
    if(bn[1]===0&&WALL_ON){
     if(car.climbT>0)continue;
@@ -593,21 +814,21 @@ uniform vec3 uCam;uniform vec2 uCity;out vec4 o;${COMMON}
 vec3 ground(vec3 wp){
   vec2 q=wp.xz;
   vec3 grass=mix(vec3(.12,.2,.09),vec3(.2,.26,.12),hash(floor(q*.5)));
-  if(abs(q.x)>700.||abs(q.y)>700.||q.y>700.) return grass*(.85+.3*hash(floor(q*2.)));
+  if(abs(q.x)>1010.||abs(q.y)>1010.) return grass*(.85+.3*hash(floor(q*2.)));
   vec2 sc=mod(q,120.)-60.;
   vec3 asp=vec3(.07)+.012*hash(floor(q*9.))+.01*hash(floor(q*.7));
-  bool ix=abs(sc.x)<20.,iz=abs(sc.y)<20.;
+  bool ix=abs(sc.x)<12.,iz=abs(sc.y)<12.;
   vec3 c=asp;
   if(!ix&&!iz) return vec3(.5);
   // lane markings
-  if(ix&&!iz){ if(abs(sc.x)<.22&&fract(q.y/9.)<.55)c=vec3(.85,.65,.1); if(abs(abs(sc.x)-18.8)<.14)c=vec3(.8);
-     if(abs(sc.x)>9.9&&abs(sc.x)<10.1&&fract(q.y/6.)<.5)c=vec3(.6);}
-  if(iz&&!ix){ if(abs(sc.y)<.22&&fract(q.x/9.)<.55)c=vec3(.85,.65,.1); if(abs(abs(sc.y)-18.8)<.14)c=vec3(.8);
-     if(abs(sc.y)>9.9&&abs(sc.y)<10.1&&fract(q.x/6.)<.5)c=vec3(.6);}
+  if(ix&&!iz){ if(abs(sc.x)<.22&&fract(q.y/9.)<.55)c=vec3(.85,.65,.1); if(abs(abs(sc.x)-10.9)<.14)c=vec3(.8);
+     if(abs(abs(sc.x)-5.9)<.1&&fract(q.y/6.)<.5)c=vec3(.6);}
+  if(iz&&!ix){ if(abs(sc.y)<.22&&fract(q.x/9.)<.55)c=vec3(.85,.65,.1); if(abs(abs(sc.y)-10.9)<.14)c=vec3(.8);
+     if(abs(abs(sc.y)-5.9)<.1&&fract(q.x/6.)<.5)c=vec3(.6);}
   if(ix&&iz){ float e=max(abs(sc.x),abs(sc.y)); }
   // crosswalks
-  if(ix&&abs(sc.y)>20.&&abs(sc.y)<24.5&&fract(q.x/1.9)<.52)c=vec3(.75);
-  if(iz&&abs(sc.x)>20.&&abs(sc.x)<24.5&&fract(q.y/1.9)<.52)c=vec3(.75);
+  if(ix&&abs(sc.y)>12.&&abs(sc.y)<16.5&&fract(q.x/1.9)<.52)c=vec3(.75);
+  if(iz&&abs(sc.x)>12.&&abs(sc.x)<16.5&&fract(q.y/1.9)<.52)c=vec3(.75);
   return c;}
 void main(){
   vec3 n=normalize(vNor);vec3 wp=vPos;vec3 alb=vCol;vec3 emis=vec3(0.);float spec=0.;
@@ -1006,6 +1227,14 @@ function drawParticles(vp,scale,type){
 /* ============================================================ camera */
 const cam={pos:[60,6,10],head:[0,0,1],mode:0,fov:62*D2R,right:[1,0,0],up:[0,1,0],fwd:[0,0,1],shake:0};
 function updateCamera(dtf){
+ if(PLN.act){const pl=PLN.act,Rp=pl.R,f=mV(Rp,[0,0,1]),u=mV(Rp,[0,1,0]);
+  const want=add(add(pl.pos,mul(f,-21)),mul(u,6.5));
+  if(!cam.pp||cam.pinit!==pl){cam.pp=want.slice();cam.pinit=pl}
+  const kk=1-Math.exp(-dtf*7);cam.pp=[lerp(cam.pp[0],want[0],kk),lerp(cam.pp[1],want[1],kk),lerp(cam.pp[2],want[2],kk)];
+  let eye=cam.pp.slice();const gh=surfaceAt(eye[0],eye[1],eye[2],1,1)[0];if(eye[1]<gh+1.2)eye[1]=gh+1.2;
+  cam.fov=lerp(cam.fov,(68+Math.min(len(pl.v),90)*.12)*D2R,1-Math.exp(-dtf*4));
+  cam.eye=eye;cam.target=add(pl.pos,mul(f,14));cam.upv=norm(add(mul(u,.45),[0,.55,0]));cam.init=false;return}
+ cam.pinit=null;
  const R=car.R;const f=mV(R,[0,0,1]);
  let flat=[f[0],0,f[2]];
  const air=car.airT>.08;
@@ -1057,8 +1286,8 @@ function updateAudio(){
  osc.frequency.setTargetAtTime(150+sp*8,t,.06);osc2.frequency.setTargetAtTime((150+sp*8)*1.5,t,.06);
  gain.gain.setTargetAtTime(on*(.004+Math.min(sp/60,1)*.006+Math.abs(car.thr)*.003),t,.1);
  roadG.gain.setTargetAtTime(on*Math.min(sp/80,1)*(car.groundN>0?.03:.01),t,.1);
- const lifting=keys.Space&&(CFG.liftUse<=0||nitro>0)&&car.pos[1]<700;
- const gas=(car.boosting?.2:0)+(lifting?.11:0);
+ const pa=PLN.act;const lifting=!pa&&keys.Space&&(CFG.liftUse<=0||nitro>0)&&car.pos[1]<700;
+ const gas=pa?(.05+pa.thr*.2):((car.boosting?.2:0)+(lifting?.11:0));
  gasG.gain.setTargetAtTime(on*gas,t,.05);gasF.frequency.setTargetAtTime(car.boosting?950:650,t,.08);
  rumG.gain.setTargetAtTime(on*(car.boosting?.07:0)+on*(lifting?.03:0),t,.06);rumO.frequency.setTargetAtTime(55+sp*.7,t,.08);
  let sv=0;if(GAME.wanted>0&&!MAPMODE){let m=1e9;for(const pc of POL)if(pc.chase)m=Math.min(m,Math.hypot(pc.x-car.pos[0],pc.z-car.pos[2]));sv=clamp(1-m/220,0,1)*.045}
@@ -1157,14 +1386,14 @@ function buildGame(){
  for(let i=0;i<12;i++)crate(px0-34+(i%6)*2.2,pz0+32+Math.floor(i/6)*2.2,1.6,rnd);
  // ---- streets
  let cnt=0;
- for(const c of [60,-60,180,-180,300,-300,420,-420]){
-  for(let t=-760;t<=760&&cnt<420;t+=34+Math.floor(rnd()*30)){
+ for(const c of [60,-60,180,-180,300,-300,420,-420,540,-540,660,-660,780,-780,900,-900]){
+  for(let t=-960;t<=960&&cnt<800;t+=34+Math.floor(rnd()*30)){
    for(const ns of [true,false]){
     if(rnd()<.5)continue;
-    const off=(rnd()-.5)*12;const x=ns?c+off:t,z=ns?t:c+off;
+    const off=(rnd()-.5)*8;const x=ns?c+off:t,z=ns?t:c+off;
     if(Math.hypot(x-SPAWN[0],z-SPAWN[2])<25||!flatFree(x,z,3))continue;
     // keep jump landing lanes mostly clear: skip inside intersections
-    const ix=Math.abs(((x%120)+120)%120-60)<20,iz=Math.abs(((z%120)+120)%120-60)<20;if(ix&&iz)continue;
+    const ix=Math.abs(((x%120)+120)%120-60)<12,iz=Math.abs(((z%120)+120)%120-60)<12;if(ix&&iz)continue;
     const k=rnd();
     if(k<.3)pyramid(x,z,rnd);else if(k<.5){for(let i=0;i<3;i++)barrel(x+i*1.3,z,rnd)}else if(k<.8)pane(x,z,!ns,4.5,rnd);else{for(let i=0;i<4;i++)crate(x+(i%2)*1.8,z+Math.floor(i/2)*1.8,1.6,rnd)}
     cnt++;
@@ -1233,7 +1462,7 @@ function landStunt(){
 }
 
 /* ---------- police ---------- */
-const POL=[];let JAIL=[0,-152];
+const POL=[];let JAIL=[0,-152];const POLICE_BREAK=20;   // 이 속도(m/s, 약 72km/h) 이상으로 박으면 경찰차 파괴
 function polBasis(pc){const f0=[Math.sin(pc.yaw),0,Math.cos(pc.yaw)];const up=pc.up;let f=sub(f0,mul(up,dot(f0,up)));f=norm(f);const x=norm(cross(up,f));pc.B={x,up,f}}
 function newPolice(x,z,yaw,o){const h=surfaceAt(x,3,z,.5,.5)[0];const pc=Object.assign({x,z,y:h,yaw,sp:0,kv:[0,0,0],up:[0,1,0],parked:false,chase:false,retire:false,cd:0,stun:0,stuckT:0,rev:0,side:Math.random()<.5?-1:1,life:0},o||{});polBasis(pc);POL.push(pc);return pc}
 function spawnPolice(burstMode){
@@ -1311,7 +1540,7 @@ function policeTick(dt){
  if(GAME.pendArrest){GAME.pendArrest=false;arrest()}
 }
 function policeContact(pc){
- const R=car.R,c=pcCenter(pc),B=pc.B;const pvel=add(mul(B.f,pc.sp),pc.kv);let first=null,nres=0;
+ const v0=car.v.slice();const R=car.R,c=pcCenter(pc),B=pc.B;const pvel=add(mul(B.f,pc.sp),pc.kv);let first=null,nres=0;
  for(let hi=0;hi<hitPts.length&&nres<3;hi++){
   const loc=hitPts[hi],r=mV(R,loc),p=add(car.pos,r),d=sub(p,c);
   const lx=dot(d,B.x),ly=dot(d,B.up),lz=dot(d,B.f);
@@ -1324,6 +1553,8 @@ function policeContact(pc){
   pc.kv=add(pc.kv,mul(n,pre*.55));pc.sp*=.7;
  }
  if(!first||pc.cd>0)return;
+ {const toC=norm(sub(c,car.pos));const vTo=dot(v0,toC);   // 부딪히기 직전 속도로 판정
+  if(vTo>=POLICE_BREAK){pc.cd=1;sfx('bump');cam.shake=Math.max(cam.shake,.5);if(pc.parked)startWanted();destroyPolice(pc,60);feed('💥 경찰차 박살! ('+Math.round(vTo)+' m/s)');if(GAME.wanted>0&&Math.random()<.7)spawnPolice();return}}
  const closing=-first.pre;if(closing<2)return;
  pc.cd=1;sfx('bump');cam.shake=Math.max(cam.shake,.25);
  const fP=mV(R,[0,0,1]);const loc=first.loc;
@@ -1459,7 +1690,7 @@ function drawMissiles(s,t){
 const dynSink=mkSink(60000),dynO=mkVAO();
 function gameTick(dtf){
  GAME.t+=dtf;
- breakTick(dtf);debTick(dtf);policeTick(dtf);needleTick(dtf);missileTick(dtf);
+ breakTick(dtf);debTick(dtf);policeTick(dtf);needleTick(dtf);missileTick(dtf);planeTick(dtf);
  coinEl.textContent=GAME.dev?'∞':GAME.coins;ndEl.textContent=GAME.needles;msEl.textContent=GAME.missiles;
  wEl.textContent=GAME.wanted>0?('🚨 '+'★'.repeat(GAME.wanted)+'☆'.repeat(5-GAME.wanted)+'  ×3'):'';
  wfx.className=GAME.wanted>0?'on':'';
@@ -1476,7 +1707,7 @@ function drawGame(vp){
   // station beacon
   const ph=(t*5)%1<.5;dbox(s,[-4,14.4,-100],I3,[1.2,.4,.6],ph?[1,.05,.05]:[.2,.02,.02],7);dbox(s,[4,14.4,-100],I3,[1.2,.4,.6],ph?[.05,.1,.2]:[.1,.3,1],7);
  }
- drawNeedles(s,t);drawMissiles(s,t);
+ drawPlanes(s,t);drawNeedles(s,t);drawMissiles(s,t);
  for(const d of deb){dbox(s,d.p,quatToMat(quatFromAxisAngle(d.ax,d.ang)),[d.s,d.s,d.s],d.col,3)}
  upSink(dynO,s);
  if(dynO.n){gl.bindVertexArray(dynO.vao);gl.drawArrays(gl.TRIANGLES,0,dynO.n)}
@@ -1503,13 +1734,14 @@ function emitFX(dtf){
  if(keys.Space){const p=add(car.pos,mV(R,[(Math.random()<.5?-1:1)*.6,-COMY,(Math.random()<.5?-1.4:1.5)]));emit(p,add(mul(mV(R,[0,-1,0]),10),[0,0,0]),.18,1.1,0)}
 }
 function updateHud(){
- const kmh=len(car.v)*3.6;speedEl.firstChild.nodeValue=Math.round(kmh);
+ const SV=PLN.act?PLN.act.v:car.v;const kmh=len(SV)*3.6;speedEl.firstChild.nodeValue=Math.round(kmh);
  nitnum.textContent=Math.round(nitro)+' / '+Math.round(CFG.cap)+' psi';
  nitfill.style.width=(100*nitro/CFG.cap)+'%';
  nitfill.className=car.boosting?'use':(sinceUse<CFG.delay&&nitro<CFG.cap?'wait':'');
  const [gh]=surfaceAt(car.pos[0],car.pos[1],car.pos[2],.5,.5);
  altEl.textContent=gh<-1e8?'고도 -- m':'고도 '+Math.max(0,Math.round(car.pos[1]-COMY-gh))+' m';
  flyEl.className=car.airT>.08?'on':'';
+ if(PLN.act){const pl=PLN.act,g2=surfaceAt(pl.pos[0],pl.pos[1],pl.pos[2],2,2)[0];altEl.textContent='✈ 고도 '+Math.max(0,Math.round(pl.pos[1]-1.4-g2))+' m · 추력 '+Math.round(pl.thr*100)+'%'}
  fx.style.opacity=Math.min(1,Math.max(0,(kmh-180)/200)+(car.boosting?.6:0));
 }
 function drawCar(vp,pos,R,boost,tint){
@@ -1579,7 +1811,10 @@ addEventListener('keydown',e=>{
  if(e.code==='Enter'){e.preventDefault();const ci=$('chatin');ci.style.display='block';ci.focus();for(const k in keys)keys[k]=false;return}
  if(e.repeat)return;keys[e.code]=true;initAudio();if(actx&&actx.state==='suspended')actx.resume();
  if(e.code==='ArrowUp')keys.KeyW=true;if(e.code==='ArrowDown')keys.KeyS=true;if(e.code==='ArrowLeft')keys.KeyA=true;if(e.code==='ArrowRight')keys.KeyD=true;
- if(e.code==='KeyR'){resetCar(true);toast('처음 위치로')}
+ if(e.code==='KeyR'){if(PLN.act)exitPlane();else{resetCar(true);toast('처음 위치로')}}
+ if(e.code==='Digit1')teleport(1240,0,90,'✈ 공항');
+ if(e.code==='Digit2')teleport(-1350,-135,0,'⚾ 야구장');
+ if(e.code==='Digit3'){resetCar(true);toast('처음 위치로')}
  if(e.code==='KeyF'){resetCar(false);toast('바로 세우기')}
  if(e.code==='KeyC'){cam.mode=(cam.mode+1)%3;toast(['추적 카메라','먼 카메라','1인칭 카메라'][cam.mode])}
  if(e.code==='KeyX'){WALL_ON=!WALL_ON;toast(WALL_ON?'벽 붙기 ON':'벽 붙기 OFF')}
@@ -1610,7 +1845,7 @@ addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
   ['KeyB','🛒','B','sm','right:12px;bottom:218px',0],['KeyN','🛒','N','sm','right:62px;bottom:218px',0],
   ['KeyC','🎥','C','sm','right:112px;bottom:218px',0],['KeyX','🧗','X','sm','right:162px;bottom:218px',0],
   ['KeyR','🏠','R','sm','right:162px;bottom:174px',0],['KeyF','↩','F','sm','right:212px;bottom:174px',0],
-  ['KeyM','🔇','M','sm','right:212px;bottom:218px',0],
+  ['KeyM','🔇','M','sm','right:212px;bottom:218px',0],['Digit1','✈','1','sm','left:12px;bottom:138px',0],['Digit2','⚾','2','sm','left:64px;bottom:138px',0],
   ['CHAT','💬','','sm','left:116px;bottom:92px',0]];
  for(const [code,ic,lb,sz,pos,hold] of L){
   const b=document.createElement('div');b.className='b '+sz;b.style.cssText=pos;b.innerHTML=ic+(lb?'<small>'+lb+'</small>':'');tc.appendChild(b);
@@ -1767,7 +2002,7 @@ function bindNetUI(){
 }
 
 /* ============================================================ boot */
-window.__sim={net,netConnect,loadMapFile,get MAPMODE(){return MAPMODE},setPose:(p,q)=>{car.pos=p;car.q=q;car.R=quatToMat(q);car.v=[0,0,0];car.w=[0,0,0]},car,keys,CFG,step:(n=1)=>{for(let i=0;i<n;i++)physStep()},get nitro(){return nitro},set nitro(v){nitro=v},ramps,boxes,resetCar,cam,surfaceAt,
+window.__sim={LOOPS,PLN,exitPlane,boardPlane,planeStep,teleport,net,netConnect,loadMapFile,get MAPMODE(){return MAPMODE},setPose:(p,q)=>{car.pos=p;car.q=q;car.R=quatToMat(q);car.v=[0,0,0];car.w=[0,0,0]},car,keys,CFG,step:(n=1)=>{for(let i=0;i<n;i++)physStep()},get nitro(){return nitro},set nitro(v){nitro=v},ramps,boxes,resetCar,cam,surfaceAt,
  GAME,MIS,fireMissile,buyMissiles,POL,NEEDLES,ND,brk,bon,ST,addCoins,startWanted,arrest,fireNeedle,detonateMine,onNetX,spawnPolice,
  run:(sec)=>{const n=Math.round(sec/dt);for(let i=0;i<n;i++){physStep();if(i%4===3){gameTick(dt*4);updateParticles(dt*4)}}},
  frame1:()=>{updateCamera(.016);render()},get sinceUse(){return sinceUse}};
