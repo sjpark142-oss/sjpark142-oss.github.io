@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Tesla Drive Sim</title>
 <style>
 :root{--ac:#35e0ff;--ac2:#ff9a3c;--bg:rgba(8,12,20,.62);--tx:#e9f2ff}
@@ -69,6 +69,22 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 #wantedfx{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .4s;animation:wf 1s infinite alternate;background:radial-gradient(ellipse at center,transparent 55%,rgba(255,30,30,.3) 100%)}
 #wantedfx.on{opacity:1}
 @keyframes wf{from{filter:hue-rotate(0)}to{filter:hue-rotate(220deg)}}
+#tc{display:none}
+body.touch{touch-action:none}
+body.touch #tc{display:block}
+body.touch #help,body.touch #maps,body.touch #gbar button{display:none}
+body.touch #net{left:8px;top:8px;transform:none;width:230px;font-size:12px}
+body.touch #set{right:8px;top:8px;width:210px}
+body.touch #net:not([open]),body.touch #set:not([open]){width:auto}
+body.touch #hud{top:44px;bottom:auto;transform:translateX(-50%) scale(.7);transform-origin:top center}
+body.touch #gbar{top:104px;bottom:auto;font-size:13px}
+body.touch #chat{top:132px;bottom:auto;left:8px;width:55%}
+body.touch #toast{top:30%;font-size:18px}
+#tc .b{position:fixed;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;background:rgba(8,12,20,.5);border:1.5px solid rgba(255,255,255,.35);color:var(--tx);font-size:22px;line-height:1.05;touch-action:none;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(3px);z-index:4}
+#tc .b small{font-size:10px;opacity:.8}
+#tc .b.on{background:rgba(53,224,255,.45);border-color:var(--ac)}
+#tc .big{width:72px;height:72px}
+#tc .sm{width:44px;height:38px;border-radius:10px;font-size:17px}
 @media(max-width:760px){#help{display:none}#spd{font-size:38px;min-width:90px}}
 </style>
 </head>
@@ -1577,6 +1593,36 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>{keys[e.code]=false;
  if(e.code==='ArrowUp')keys.KeyW=false;if(e.code==='ArrowDown')keys.KeyS=false;if(e.code==='ArrowLeft')keys.KeyA=false;if(e.code==='ArrowRight')keys.KeyD=false});
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
+/* ---------- 모바일 터치 조작 ---------- */
+(function(){
+ const touch=matchMedia('(pointer:coarse)').matches||('ontouchstart' in window)||navigator.maxTouchPoints>0;
+ if(!touch)return;document.body.classList.add('touch');
+ const tc=document.createElement('div');tc.id='tc';document.body.appendChild(tc);
+ const kd=c=>dispatchEvent(new KeyboardEvent('keydown',{code:c})),ku=c=>dispatchEvent(new KeyboardEvent('keyup',{code:c}));
+ // [키, 라벨, 작은글씨, 크기, 위치스타일, 유지여부]
+ const sp='env(safe-area-inset-';
+ const L=[
+  ['KeyA','◀','좌','big','left:12px;bottom:14px',1],['KeyD','▶','우','big','left:92px;bottom:14px',1],
+  ['KeyQ','↺','Q','sm','left:12px;bottom:92px',1],['KeyE','↻','E','sm','left:64px;bottom:92px',1],
+  ['KeyS','▼','후진','big','right:92px;bottom:14px',1],['KeyW','▲','가속','big','right:12px;bottom:14px',1],
+  ['ShiftLeft','🔥','부스터','big','right:92px;bottom:94px',1],['Space','⤴','상승','big','right:12px;bottom:94px',1],
+  ['KeyZ','💉','Z','sm','right:12px;bottom:174px',0],['KeyG','💥','G','sm','right:62px;bottom:174px',0],['KeyT','🚀','T','sm','right:112px;bottom:174px',0],
+  ['KeyB','🛒','B','sm','right:12px;bottom:218px',0],['KeyN','🛒','N','sm','right:62px;bottom:218px',0],
+  ['KeyC','🎥','C','sm','right:112px;bottom:218px',0],['KeyX','🧗','X','sm','right:162px;bottom:218px',0],
+  ['KeyR','🏠','R','sm','right:162px;bottom:174px',0],['KeyF','↩','F','sm','right:212px;bottom:174px',0],
+  ['KeyM','🔇','M','sm','right:212px;bottom:218px',0],
+  ['CHAT','💬','','sm','left:116px;bottom:92px',0]];
+ for(const [code,ic,lb,sz,pos,hold] of L){
+  const b=document.createElement('div');b.className='b '+sz;b.style.cssText=pos;b.innerHTML=ic+(lb?'<small>'+lb+'</small>':'');tc.appendChild(b);
+  const down=e=>{e.preventDefault();try{b.setPointerCapture(e.pointerId)}catch(_){}b.classList.add('on');
+   if(code==='CHAT'){const ci=$('chatin');ci.style.display='block';ci.focus();return}
+   initAudio();if(actx&&actx.state==='suspended')actx.resume();kd(code)};
+  const up=e=>{e.preventDefault();b.classList.remove('on');if(code!=='CHAT')ku(code)};
+  b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('lostpointercapture',up);
+  b.addEventListener('contextmenu',e=>e.preventDefault());
+ }
+ document.addEventListener('touchmove',e=>{if(!e.target.closest||!e.target.closest('details,#chat'))e.preventDefault()},{passive:false});
+})();
 addEventListener('pointerdown',()=>{initAudio()});
 
 /* ============================================================ online (Supabase Realtime / local tabs) */
@@ -1585,7 +1631,7 @@ const DEV_ID='psj_1128개발자';             // 이 아이디로 로그인한 �
 const AUTH_DOMAIN='carsim.app';                // 아이디 → 가짜 이메일(아이디@도메인) 변환용
 const SB_CDN='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
 const net={on:false,id:Math.random().toString(36).slice(2,10),name:'',send:null,close:null,mode:'',remotes:new Map(),last:0,cnt:0,user:null};
-let sbc=null,lastVP=null;
+let sbc=null,lastVP=null,netRx=performance.now();
 const lsGet=k=>{try{return localStorage.getItem(k)||''}catch(e){return ''}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
 const BAD=/(시발|씨발|ㅅㅂ|ㅂㅅ|병신|지랄|개새끼|좆|fuck|shit)/gi;
@@ -1612,7 +1658,7 @@ function onRemoteState(p){
  if(!r){const tag=document.createElement('div');tag.className='tag';$('tags').appendChild(tag);
   r={name:'',p:p.p.slice(),rp:p.p.slice(),q:p.q.slice(),rq:p.q.slice(),v:[0,0,0],b:0,tint:tintFor(p.i),tag,last:0};net.remotes.set(p.i,r);chatAdd('',cleanTxt(p.n||'?')+' 님이 입장했습니다',true)}
  r.name=cleanTxt(p.n||'?').slice(0,16);r.tag.textContent=r.name;
- r.p=p.p;r.q=p.q;r.v=p.v||[0,0,0];r.b=p.b?1:0;r.n=p.n||0;r.last=performance.now();
+ r.p=p.p;r.q=p.q;r.v=p.v||[0,0,0];r.b=p.b?1:0;r.n=p.e||0;r.last=performance.now();
 }
 function removeRemote(id,say){const r=net.remotes.get(id);if(!r)return;r.tag.remove();net.remotes.delete(id);if(say)chatAdd('',r.name+' 님이 나갔습니다',true)}
 function loadScript(src){return new Promise((res,rej)=>{if(window.supabase)return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Supabase 라이브러리를 불러오지 못했습니다 (인터넷 필요)'));document.head.appendChild(s)})}
@@ -1636,12 +1682,26 @@ async function authDo(kind){
 }
 function connectLocal(room){const bc=new BroadcastChannel('carsim:'+room);bc.onmessage=e=>{if(e.data)dispatch(e.data.ev,e.data.pl)};net.send=(ev,pl)=>bc.postMessage({ev,pl});net.close=()=>bc.close();net.mode='local'}
 async function connectSupabase(room){
- const c=await sbClient();const ch=c.channel('carsim:'+room,{config:{broadcast:{self:false}}});
- for(const ev of ['s','c','b','x'])ch.on('broadcast',{event:ev},m=>dispatch(ev,m.payload));
- await new Promise((res,rej)=>{let done=false;const to=setTimeout(()=>{if(!done){done=true;rej(new Error('연결 시간 초과'))}},10000);
-  ch.subscribe(st=>{if(done)return;if(st==='SUBSCRIBED'){done=true;clearTimeout(to);res()}else if(st==='CHANNEL_ERROR'||st==='TIMED_OUT'){done=true;clearTimeout(to);rej(new Error('채널 오류: '+st))}})});
- net.send=(ev,pl)=>{try{const p=ch.send({type:'broadcast',event:ev,payload:pl});if(p&&p.catch)p.catch(()=>{})}catch(e){}};
- net.close=()=>{try{c.removeChannel(ch)}catch(e){}};net.mode='supabase';
+ const c=await sbClient();let cur=null,dead=false,retry=0,rt=0;
+ const open=()=>new Promise((res,rej)=>{
+  const ch=c.channel('carsim:'+room,{config:{broadcast:{self:false}}});cur=ch;
+  for(const ev of ['s','c','b','x'])ch.on('broadcast',{event:ev},m=>{netRx=performance.now();dispatch(ev,m.payload)});
+  let done=false;const to=setTimeout(()=>{if(!done){done=true;rej(new Error('연결 시간 초과'))}},10000);
+  ch.subscribe(st=>{
+   if(st==='SUBSCRIBED'){retry=0;if(!done){done=true;clearTimeout(to);res()}else if(net.on)setNetMsg('재연결됨')}
+   else if(st==='CHANNEL_ERROR'||st==='TIMED_OUT'||st==='CLOSED'){
+    if(!done){done=true;clearTimeout(to);rej(new Error('채널 오류: '+st))}
+    else if(!dead&&cur===ch)reopen()}});
+ });
+ const reopen=()=>{if(dead||rt)return;setNetMsg('연결 끊김 — 재연결 중…');
+  rt=setTimeout(async()=>{rt=0;if(dead)return;try{c.removeChannel(cur)}catch(e){}try{await open()}catch(e){retry++;rt=0;reopen()}},Math.min(5000,500+retry*700))};
+ await open();
+ net.send=(ev,pl)=>{try{if(!cur)return;const p=cur.send({type:'broadcast',event:ev,payload:pl});if(p&&p.catch)p.catch(()=>{})}catch(e){}};
+ net.close=()=>{dead=true;clearTimeout(rt);try{c.removeChannel(cur)}catch(e){}};net.mode='supabase';
+ // 감시: 메시지가 오래 없고 다른 사람이 보이던 상태면 채널을 다시 연다
+ const wd=setInterval(()=>{if(dead){clearInterval(wd);return}if(document.hidden)return;if(net.remotes.size&&performance.now()-netRx>12000)reopen()},4000);
+ addEventListener('online',()=>{if(!dead)reopen()});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!dead){netPrev=performance.now();netRx=performance.now()}});
 }
 async function netConnect(){
  if(net.on){netDisconnect();return}
@@ -1662,12 +1722,16 @@ function netDisconnect(){
  net.on=false;net.send=null;for(const id of [...net.remotes.keys()])removeRemote(id,false);
  $('n_conn').textContent='접속';$('netsum').textContent='🌐 온라인 (오프라인)';setNetMsg('접속 종료');
 }
+let netPrev=performance.now();
+function sendState(){if(!net.on||!net.send)return;net.send('s',{i:net.id,n:net.name,p:car.pos.map(v=>+v.toFixed(2)),q:car.q.map(v=>+v.toFixed(4)),v:car.v.map(v=>+v.toFixed(2)),b:car.boosting?1:0,e:+ND.ext.toFixed(2)})}
+setInterval(()=>{if(document.hidden)sendState()},1000);   // 탭이 백그라운드여도 위치 계속 전송
 function netTick(dtf){
  const now=performance.now();
- if(net.on&&now-net.last>=50){net.last=now;
-  net.send('s',{i:net.id,n:net.name,p:car.pos.map(v=>+v.toFixed(2)),q:car.q.map(v=>+v.toFixed(4)),v:car.v.map(v=>+v.toFixed(2)),b:car.boosting?1:0,n:+ND.ext.toFixed(2)});}
+ if(now-netPrev>1500){for(const r of net.remotes.values())r.last=now}   // 내 화면이 멈췄다 돌아온 경우(백그라운드/렉) 상대를 나간 것으로 처리하지 않음
+ netPrev=now;
+ if(net.on&&now-net.last>=50){net.last=now;sendState()}
  for(const [id,r] of net.remotes){
-  const age=(now-r.last)/1000;if(age>4){removeRemote(id,true);continue}
+  const age=(now-r.last)/1000;if(age>10){removeRemote(id,true);continue}
   const a=Math.min(age,.35);const pr=[r.p[0]+r.v[0]*a,r.p[1]+r.v[1]*a,r.p[2]+r.v[2]*a];
   if(Math.hypot(pr[0]-r.rp[0],pr[1]-r.rp[1],pr[2]-r.rp[2])>60)r.rp=pr.slice();
   const k=1-Math.exp(-dtf*14);r.rp=[lerp(r.rp[0],pr[0],k),lerp(r.rp[1],pr[1],k),lerp(r.rp[2],pr[2],k)];
