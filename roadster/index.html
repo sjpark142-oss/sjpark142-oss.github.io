@@ -98,8 +98,8 @@ body.touch #toast{top:30%;font-size:18px}
   <h4>공중 (뜬 상태)</h4>
   <kbd>W</kbd><kbd>S</kbd> 앞 / 뒤로 회전(피치) · <kbd>A</kbd><kbd>D</kbd> 좌 / 우 회전(롤)<br>
   <kbd>Q</kbd><kbd>E</kbd> 좌 / 우 요(Y축) 회전<br>※ 공중 회전·상승은 질소를 쓰지 않습니다 (부스터 추진 방식으로 계산)
-  <h4>벽 붙기</h4>
-  벽을 향해 달리면 벽을 타고 오르고, 바퀴를 벽에 대면 벽 위를 주행합니다 · <kbd>X</kbd> ON/OFF
+  <h4>바닥 흡착</h4>
+  바퀴가 닿은 면(경사·루프·곡면)에 계속 붙어 달립니다. 속도가 필요하고, 강한 충돌·플랫폼 이탈·<kbd>Space</kbd> 상승 시 떨어집니다 · <kbd>X</kbd> ON/OFF
   <h4>코인 · 경찰 · 독침</h4>
   공중 플립/롤/스핀 착지, 깨지는 상자·유리·에어 보너스로 🪙 획득<br>
   경찰차를 박으면 <b>수배</b>(코인 ×3) · 정면 충돌 +코인/증원 · 옆구리 피격 = 체포(-50🪙)<br>
@@ -115,6 +115,7 @@ body.touch #toast{top:30%;font-size:18px}
   <label>부스터 출력 (배)<input id="s_pow" type="number" min="0" step="0.25" value="1"></label>
   <label>상승 질소 소모 (psi/초)<input id="s_lift" type="number" min="0" step="50" value="1500"></label>
   <label>공중회전 질소 소모 (psi/초)<input id="s_rot" type="number" min="0" step="50" value="0"></label>
+  <label style="display:flex;gap:8px;align-items:center"><input id="s_susp" type="checkbox"> 서스펜션 켜기 (기본 꺼짐)</label>
 </details>
 <div id="gbar" class="panel">🪙 <b id="g_coin">0</b><span>💉 <b id="g_nd">0</b></span><span id="g_wanted"></span><span>🚀 <b id="g_ms">0</b></span><button id="g_buy">B · 독침 5개 (100🪙)</button><button id="g_buyms">N · 미사일 3개 (300🪙)</button></div>
 <div id="hud" class="panel">
@@ -135,6 +136,7 @@ body.touch #toast{top:30%;font-size:18px}
 <div id="tags"></div>
 <details id="net" class="panel"><summary id="netsum">🌐 온라인 (오프라인)</summary>
   <label>닉네임<input id="n_name" maxlength="12" placeholder="손님"></label>
+  <label style="display:flex;gap:8px;align-items:center">내 차 색 (다른 사람에게 보임)<input id="n_col" type="color" value="#ffffff" style="width:44px;height:26px;padding:0"><button id="n_colr" type="button">기본</button></label>
   <label>방 코드<input id="n_room" maxlength="30"></label>
   <button id="n_conn" style="width:100%">접속</button>
   <details><summary>계정 로그인 (선택)</summary>
@@ -189,8 +191,9 @@ function mmul(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;
 function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 
 /* ============================================================ settings */
-const CFG={cap:5000,use:1000,delay:2,rech:5,pow:1,liftUse:1500,rotUse:0};
+const CFG={cap:5000,use:1000,delay:2,rech:5,pow:1,liftUse:1500,rotUse:0,susp:false};
 function bindSettings(){
+ {const sc=$('s_susp');sc.addEventListener('change',()=>{CFG.susp=sc.checked;applySusp();toast(CFG.susp?'서스펜션 ON':'서스펜션 OFF')});sc.addEventListener('keydown',e=>e.stopPropagation())}
  const map={s_cap:'cap',s_use:'use',s_delay:'delay',s_rech:'rech',s_pow:'pow',s_lift:'liftUse',s_rot:'rotUse'};
  for(const id in map){const el=$(id);el.addEventListener('change',()=>{const v=parseFloat(el.value);if(isFinite(v)&&v>=0){CFG[map[id]]=v;if(map[id]==='cap')nitro=Math.min(nitro,v)}el.value=CFG[map[id]]});
   el.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')el.blur()});}
@@ -261,6 +264,103 @@ const rampProfiles={
  mega:(H,L,n=14)=>{const pr=[];for(let i=0;i<=n;i++){const t=i/n;pr.push([L*t,H*Math.pow(t,2.2)])}return pr}
 };
 
+
+/* ---------- 인프라: 주차장 · 터널 · 파쿠르 타워 ---------- */
+const INFRA=[];
+const INFRA_BLK={'-1,1':'tower','2,-1':'lot','-2,1':'garage','-1,-2':'lot'};
+function inInfra(x,z,m){m=m||0;for(const r of INFRA)if(x>r[0]-m&&x<r[2]+m&&z>r[1]-m&&z<r[3]+m)return true;return false}
+function buildLot(cx,cz,rnd){
+ INFRA.push([cx-48,cz-48,cx+48,cz+48]);
+ const asph=[.11,.11,.12],wl=[.92,.92,.88];
+ F(cx-46,cz-46,cx+46,cz+46,.06,asph,3);
+ const SW=2.8,SD=5.4,NS=26,x0=cx-NS*SW/2;
+ // 줄 배치: 슬롯2줄(등지고) + 통로8 ×4
+ const rows=[];let z=cz-33.6;
+ for(let g=0;g<4;g++){rows.push([z,1]);rows.push([z+SD,-1]);z+=SD*2+8}
+ const carCols=[[.8,.1,.1],[.1,.3,.75],[.85,.85,.88],[.1,.1,.12],[.5,.52,.56],[.9,.75,.1],[.15,.5,.3],[.9,.9,.9]];
+ for(const [zr,dir] of rows){
+  for(let i=0;i<=NS;i++){const x=x0+i*SW;F(x-.06,zr,x+.06,zr+SD,.075,wl,3)}
+  F(x0,zr-.06,x0+NS*SW,zr+.06,.075,wl,3);F(x0,zr+SD-.06,x0+NS*SW,zr+SD+.06,.075,wl,3);
+  for(let i=0;i<NS;i++){
+   if(rnd()<.45)continue;
+   const xc=x0+(i+.5)*SW,zc=zr+SD/2+(rnd()-.5)*.5;const c=carCols[Math.floor(rnd()*carCols.length)];
+   solid(xc-.9,.1,zc-2.2,xc+.9,1.0,zc+2.2,c,3);solid(xc-.8,1.0,zc-1.2,xc+.8,1.55,zc+1.0,c.map(v=>v*.35),3);
+  }
+ }
+ // 통로 화살표 / 가로등 / 입구 차단기
+ for(let g=0;g<3;g++){const za=cz-33.6+SD*2+g*(SD*2+8)+4;for(let x=cx-36;x<cx+36;x+=12)F(x,za-.1,x+5,za+.1,.076,[.95,.75,.1],3)}
+ for(const lx of [-40,-14,14,40])for(const lz of [-44,0,44]){solid(cx+lx-.2,0,cz+lz-.2,cx+lx+.2,9,cz+lz+.2,[.25,.27,.3],3,false);addBox(cx+lx-1.2,9,cz+lz-.4,cx+lx+1.2,9.3,cz+lz+.4,[1,.95,.75],7)}
+ for(let i=0;i<5;i++)bon.push({c:[cx-30+i*15,2.4,cz+(i%2?-29:29)],alive:true,t:0});
+ // 큰 "P" 표지
+ addBox(cx-1.2,0,cz-46.3,cx+1.2,5,cz-46.1,[.1,.3,.8],3);addBox(cx-.9,3.2,cz-46.4,cx+.9,4.6,cz-46.3,[1,1,1],7);
+}
+function buildGarage(cx,cz,rnd){
+ INFRA.push([cx-48,cz-48,cx+48,cz+48]);
+ const conc=[.55,.55,.57],dark=[.2,.2,.22];
+ F(cx-46,cz-46,cx+46,cz+46,.06,[.13,.13,.14],3);
+ const SX0=cx-35,SX1=cx+35,SZ0=cz-44,SZ1=cz+44;
+ for(const [y,col] of [[5,conc],[10,conc]]){
+  solid(SX0,y-.7,SZ0,SX1,y,SZ1,col,3);
+  // 가장자리 방호벽(남북), 슬롯 선
+  solid(SX0,y,SZ0,SX1,y+1,SZ0+.5,[.7,.7,.72],3);solid(SX0,y,SZ1-.5,SX1,y+1,SZ1,[.7,.7,.72],3);
+  for(let x=SX0+4;x<SX1;x+=3)for(const zz of [SZ0+.8,SZ1-6.2]){F(x,zz,x+.12,zz+5.4,y+.01,[.95,.95,.9],3)}
+  for(let x=SX0+8;x<SX1-6;x+=2.8*4)for(let k=0;k<2;k++){if(rnd()<.35)continue;const xc=x+k*2.8,zc=SZ0+3.5;
+    solid(xc-.9,y,zc-2.2,xc+.9,y+.9,zc+2.2,[.8,.1,.1].map(v=>v*(.5+rnd())),3);}
+  // 천장 조명
+  for(let x=SX0+6;x<SX1;x+=12)for(let z=SZ0+10;z<SZ1;z+=22)addBox(x-2,y-.75,z-.3,x+2,y-.7,z+.3,[1,.95,.8],7);
+ }
+ // 기둥
+ for(let x=SX0+4;x<=SX1-3;x+=15)for(let z=SZ0+6;z<=SZ1-5;z+=22)solid(x-.7,0,z-.7,x+.7,10,z+.7,dark,3);
+ // 지붕층 조명탑·표지
+ solid(SX0,10,cz-1,SX0+.8,15,cz+1,dark,3,false);addBox(cx-10,10.3,cz-.2,cx+10,10.4,cz+.2,[1,.9,.2],7);
+ // 진입 램프: 서쪽 1층→2층(5m), 동쪽 2층→옥상(10m)
+ addRamp(cx-40,cz-46,0,10,[[0,0],[78,5],[92,5]]);
+ addRamp(cx+40,cz+46,180,10,[[0,5],[78,10],[92,10]]);
+ for(let i=0;i<4;i++)bon.push({c:[cx-20+i*14,11.6,cz],alive:true,t:0});
+ for(let i=0;i<3;i++)bon.push({c:[cx-20+i*20,6.6,cz+10],alive:true,t:0});
+}
+function buildTower(cx,cz,rnd){
+ INFRA.push([cx-48,cz-48,cx+48,cz+48]);
+ const S=28,H=42,glass=[.35,.5,.62];
+ F(cx-46,cz-46,cx+46,cz+46,.06,[.3,.3,.29],3);
+ solid(cx-S,0,cz-S,cx+S,H,cz+S,glass,1);
+ // 나선 램프: 남쪽면(+x) 0→14, 동쪽면(+z) 14→28, 북쪽면(-x) 28→42(+평지)
+ addRamp(cx-46,cz-35,90,14,[[0,0],[74,14]]);
+ solid(cx+S,0,cz-S-14,cx+S+16,14,cz-S,[.5,.5,.55],3);
+ addRamp(cx+36,cz-S,0,16,[[0,14],[56,28]]);
+ solid(cx+S,0,cz+S,cx+S+16,28,cz+S+16,[.5,.5,.55],3);
+ addRamp(cx+S,cz+36,-90,16,[[0,28],[44,H],[58,H]]);
+ // 지지 기둥(램프 아래가 비어 보이지 않게 램프 스커트가 있음) · 표지 · 코인
+ for(let i=0;i<6;i++)bon.push({c:[cx-34+i*10,2.5+i*2.2,cz-35],alive:true,t:0});
+ for(let i=0;i<5;i++)bon.push({c:[cx+36,16.5+i*2.5,cz-20+i*11],alive:true,t:0});
+ for(let i=0;i<5;i++)bon.push({c:[cx+22-i*10,30.5+i*2.4,cz+36],alive:true,t:0});
+ // 옥상: 점프대 + 보너스
+ addRamp(cx-2,cz,-90,10,[[0,H],[16,H+2],[22,H+5.5]]);
+ for(let i=0;i<5;i++)bon.push({c:[cx-6-i*3,H+8-i*.5,cz+(i%2?2:-2)],alive:true,t:0});
+ for(let i=0;i<4;i++)bon.push({c:[cx+18,H+1.6,cz-12+i*8],alive:true,t:0});
+ // 야간 표시등
+ for(const [dx,dz] of [[-S,-S],[S,-S],[S,S],[-S,S]])addBox(cx+dx-.8,H+3,cz+dz-.8,cx+dx+.8,H+5,cz+dz+.8,[1,.2,.2],7);
+}
+function buildTunnel(x0,z0,x1,z1,rnd){   // 도로 중심선 따라 덮인 구간. 축: x 또는 z 방향
+ const alongX=Math.abs(x1-x0)>Math.abs(z1-z0);
+ const W=8,T=4,RH=8,RT=3,wallc=[.5,.5,.52];
+ INFRA.push(alongX?[x0,z0-12,x1,z0+12]:[x0-12,z0,x0+12,z1]);
+ const B=(a0,b0,a1,b1,y0,y1,col,k,c=true)=>alongX?solid(a0,y0,b0,a1,y1,b1,col,k,c):solid(b0,y0,a0,b1,y1,a1,col,k,c);
+ const a0=alongX?x0:z0,a1=alongX?x1:z1,c=alongX?z0:x0;
+ const BF=(a0_,b0_,a1_,b1_,y,col,k)=>alongX?F(a0_,b0_,a1_,b1_,y,col,k):F(b0_,a0_,b1_,a1_,y,col,k);
+ B(a0,c-W-T,a1,c-W,0,RH,wallc,3);B(a0,c+W,a1,c+W+T,0,RH,wallc,3);
+ B(a0,c-W-T,a1,c+W+T,RH,RH+RT,[.42,.42,.45],3);
+ // 노면 · 차선 · 조명
+ BF(a0,c-W,a1,c+W,.058,[.1,.1,.11],3);
+ for(let a=a0+2;a<a1-2;a+=8)BF(a,c-.15,a+4,c+.15,.07,[.95,.8,.1],3);
+ for(const sg of [-1,1])BF(a0,c+sg*(W-.7)-.1,a1,c+sg*(W-.7)+.1,.07,[.95,.95,.95],3);
+ for(let a=a0+4;a<a1;a+=8)for(const sg of [-1,1])B(a-1.5,c+sg*(W-.9)-.15,a+1.5,c+sg*(W-.9)+.15,RH-.45,RH-.3,[1,.8,.45],7,false);
+ for(let a=a0+8;a<a1;a+=16)B(a-.15,c-W+.1,a+.15,c-W+.4,.4,3.6,[.9,.9,.2],7,false);
+ // 입구 포털(노랑/검정 줄무늬 + 경고등)
+ for(const [aa,sg] of [[a0,1],[a1,-1]])for(let k=0;k<8;k++){const cc=c-W-T+k*(2*W+2*T)/8;B(aa-.15+sg*0,cc,aa+.15,cc+(2*W+2*T)/8,RH+RT,RH+RT+.8,k%2?[.95,.8,.1]:[.1,.1,.1],3,false)}
+ bon.push(...[0,1,2,3,4].map(i=>({c:alongX?[a0+10+i*18,1.8,c]:[c,1.8,a0+10+i*18],alive:true,t:0})));
+}
+
 function buildCity(){
  const rnd=mulberry32(20241106);
  const padPark=[.14,.38,.12],padConc=[.3,.3,.29];
@@ -268,12 +368,13 @@ function buildCity(){
  const stunt=new Set(['0,0','1,1']);
  for(let i=-8;i<=8;i++)for(let j=-8;j<=8;j++){
   mute=false;const cx=P*i,cz=P*j,key=i+','+j;
-  const isStunt=stunt.has(key);
+  const isInfra=INFRA_BLK[key];const isStunt=stunt.has(key)||!!isInfra;
   const rr=rnd();
   const park=!isStunt&&(rr<.11||(i===1&&j===0)||(i===0&&j===1)||(i===-3&&j===-2)||(i===3&&j===2)||(i===-2&&j===4)||(i===4&&j===-3)||(i===-5&&j===-5)||(i===6&&j===-1));
   const pad=park?padPark:padConc;
   quad([cx-BLK,.05,cz-BLK],[cx+BLK,.05,cz-BLK],[cx+BLK,.05,cz+BLK],[cx-BLK,.05,cz+BLK],[0,1,0],pad,5);
   if(key==='0,-1'||key==='-1,0')mute=true;
+  if(isInfra){if(isInfra==='tower')buildTower(cx,cz,rnd);else if(isInfra==='garage')buildGarage(cx,cz,rnd);else buildLot(cx,cz,rnd);continue}
   if(isStunt||park){
    if(park)buildPark(cx,cz,rnd);
    continue;
@@ -329,6 +430,7 @@ function buildCity(){
  A2(-330,180,16,rampProfiles.quarter(15,72));
  addRamp(-60,60,-90,16,rampProfiles.wedge(5,20));addRamp(-190,60,-90,14,rampProfiles.table(5,16,10,16));
  addRamp(-300,60,-90,16,rampProfiles.mega(20,60));
+ buildTunnel(196,180,284,180,rnd);buildTunnel(-180,-166,-180,-74,rnd);
  // random extras on street segments
  const types=['wedge','kicker','quarter','table','hill','whoops'];
  for(let n=0;n<170;n++){
@@ -336,6 +438,7 @@ function buildCity(){
   const c=60+P*kk,m=Math.floor(rnd()*17)-8,t=P*m+(rnd()*50-25);
   const off=(rnd()-.5)*5;
   const x=ns?c+off:t,z=ns?t:c+off,yaw=ns?(rnd()<.5?0:180):(rnd()<.5?90:-90);
+  if(inInfra(x,z,16))continue;
   const ty=types[Math.floor(rnd()*types.length)];let pr;
   switch(ty){case'wedge':pr=rampProfiles.wedge(2+rnd()*7,12+rnd()*12);break;case'kicker':pr=rampProfiles.kicker(3+rnd()*7,14+rnd()*12);break;
    case'quarter':pr=rampProfiles.quarter(8+rnd()*7,60+rnd()*15);break;case'table':pr=rampProfiles.table(3+rnd()*4,10+rnd()*8,8+rnd()*8,10+rnd()*8);break;
@@ -567,6 +670,44 @@ function buildExtras(){
  addRamp(SX-62,SZ+14,0,10,rampProfiles.kicker(4,16));addRamp(SX+62,SZ+14,0,10,rampProfiles.kicker(4,16));
  addRamp(SX-62,SZ-60,90,12,rampProfiles.quarter(9,70));addRamp(SX+62,SZ-60,-90,12,rampProfiles.quarter(9,70));
  addRamp(SX,SZ-70,0,14,rampProfiles.table(3.5,12,12,12));
+ // ---- 한국식 야구장 디테일: 곡선 외야 펜스(녹색) + 광고판 + 홈런 노란 라인 + 파울폴 + 더그아웃 + 백네트 + 지붕 + 전광판
+ {
+  const HPx=SX,HPz=SZ-46,RF=108,green2=[.07,.28,.13],adc=[[.9,.15,.1],[.1,.3,.8],[.95,.8,.1],[.95,.95,.95],[.1,.6,.3],[.95,.45,.1]];
+  const pt=(th,r)=>[HPx+Math.sin(th*D2R)*r,HPz+Math.cos(th*D2R)*r];
+  const STEPS=150;let adI=0;
+  for(let i=0;i<STEPS;i++){
+   const th=-46+92*(i+.5)/STEPS;const [x,z]=pt(th,RF);
+   if(Math.abs(x-SX)<7.5)continue;   // 센터 게이트
+   const hw=.85;
+   solid(x-hw,0,z-hw,x+hw,2.4,z+hw,green2,3);
+   addBox(x-hw,2.4,z-hw,x+hw,2.6,z+hw,[.98,.85,.1],7);                      // 노란 홈런 라인
+   const [ix,iz]=pt(th,RF-1.4);if(i%4===0)adI++;
+   addBox(ix-hw,.3,iz-hw,ix+hw,1.7,iz+hw,adc[adI%adc.length],3);          // 광고판
+  }
+  // 워닝트랙(흙)
+  for(let i=0;i<60;i++){const t0=-46+92*i/60,t1=-46+92*(i+1)/60;
+   const a0=pt(t0,RF-7),a1=pt(t1,RF-7),b0=pt(t0,RF-1),b1=pt(t1,RF-1);
+   quad([a0[0],.08,a0[1]],[b0[0],.08,b0[1]],[b1[0],.08,b1[1]],[a1[0],.08,a1[1]],[0,1,0],[.58,.4,.24],5)}
+  // 파울 폴
+  for(const th of [-46,46]){const [x,z]=pt(th,RF+1);solid(x-.3,0,z-.3,x+.3,24,z+.3,[.98,.85,.1],3,false)}
+  // 더그아웃(1루=빨강 / 3루=파랑)
+  for(const [sg,col] of [[-1,[.75,.12,.12]],[1,[.12,.2,.6]]]){
+   solid(SX+sg*21-7,0,SZ-63,SX+sg*21+7,2.4,SZ-57,[.25,.27,.3],3);
+   solid(SX+sg*21-7.4,2.4,SZ-63.4,SX+sg*21+7.4,2.9,SZ-56.6,col,3);
+  }
+  // 백네트(유리)
+  solid(SX-18,0,SZ-69,SX+18,11,SZ-68.8,[.75,.9,.95],6);
+  for(let x=-18;x<=18;x+=6)solid(SX+x-.25,0,SZ-69.3,SX+x+.25,12,SZ-68.7,[.3,.3,.33],3);
+  // 홈 쪽 지붕(캐노피)
+  solid(SX-62,15,SZ-101,SX+62,16.2,SZ-76,[.88,.88,.9],3);
+  for(let x=-60;x<=60;x+=15)solid(SX+x-.5,0,SZ-77.5,SX+x+.5,15,SZ-76.5,[.6,.6,.64],3);
+  for(let x=-56;x<=56;x+=14)addBox(SX+x-3,14.9,SZ-96,SX+x+3,15,SZ-94,[1,.97,.85],7);
+  // 센터 전광판(게이트 위)
+  solid(SX-27,6,SZ+66,SX+27,17,SZ+68,[.08,.08,.1],3);
+  for(let i=0;i<9;i++)addBox(SX-25+i*5.6,8,SZ+65.9,SX-21.4+i*5.6,15,SZ+65.95,i%3===1?[.95,.8,.1]:(i%3===0?[.1,.8,.35]:[.2,.6,1]),7);
+  // 불펜
+  for(const sg of [-1,1]){const [bx,bz]=pt(sg*40,RF+7);solid(bx-4,0,bz-6,bx+4,.9,bz+6,[.5,.4,.3],3);solid(bx-4,.9,bz-6,bx-3.5,2.4,bz+6,[.25,.27,.3],3)}
+ }
 }
 
 /* ---------- surface queries ---------- */
@@ -582,7 +723,8 @@ function pointInBox(x,y,z){if(MAPMODE)return false;const c=cellAt(x,z);for(const
 
 /* ============================================================ vehicle physics */
 const M=3200,GR=14.5,INERT=[8300,8600,3000],COMY=0.45;
-const KS=900000,CS=30000;   // 서스펜션 거의 없음(아주 단단). 부드럽게 하려면 KS를 낮추세요
+let KS=2.0e6,CS=60000;   // 서스펜션 OFF(기본): 단단함
+function applySusp(){if(CFG.susp){KS=175000;CS=16000}else{KS=2.0e6;CS=60000}}   // 서스펜션 거의 없음(아주 단단). 부드럽게 하려면 KS를 낮추세요
 const tires=[[.72,-.495,1.54,1],[-.72,-.495,1.54,1],[.72,-.495,-1.62,0],[-.72,-.495,-1.62,0]];
 const skids=[[.7,-.15,2.3],[-.7,-.15,2.3],[.7,-.17,-2.1],[-.7,-.17,-2.1],
  [.6,.62,.3],[-.6,.62,.3],[.6,.62,-1.2],[-.6,.62,-1.2],
@@ -623,21 +765,21 @@ function physStep(){
  else{sinceUse+=dt;if(sinceUse>=CFG.delay&&nitro<CFG.cap)nitro=Math.min(CFG.cap,nitro+CFG.cap/Math.max(.1,CFG.rech)*dt)}
  car.boosting=boosting;
  const gdir=norm(add(mul([0,-1,0],1-car.wb),mul(car.wn,-car.wb)));
- let F=mul(gdir,M*GR);if(car.wb>.01)F=add(F,mul(car.wn,-M*GR*.35*car.wb));
+ let F=mul(gdir,M*GR);if(car.wb>.01)F=add(F,mul(car.wn,-M*GR*.3*car.wb));
  let T=[0,0,0];
  const addF=(f,r)=>{F=add(F,f);T=add(T,cross(r,f))};
  // contacts
  loopUpdate();
- let tireContacts=0,slipMax=0,wallC=0,wnAcc=[0,0,0];
+ let tireContacts=0,slipMax=0,stickC=0,wnAcc=[0,0,0];
  const sFwd=dot(car.v,fwd);
  const processPoint=(loc,isTire,front)=>{
   const r=mV(R,loc);const p=add(car.pos,r);
   const sf=surfaceAt(p[0],p[1],p[2],.55,1.3);let n=sf[1];
   let depth=sf[0]-p[1];
-  if(LOOPS.length){const lc=loopContact(p);if(lc&&lc.depth>depth){n=lc.n;depth=lc.depth;if(isTire){wallC++;wnAcc=add(wnAcc,lc.n)}}}
-  if(isTire&&WALL_ON){const wl=wallAt(p,upb,car.wb>.2?1.4:(sFwd<55.5?.9:.4));if(wl&&wl.depth>depth){n=wl.n;depth=Math.min(wl.depth,.22);wallC++;wnAcc=add(wnAcc,wl.n)}}
+  if(LOOPS.length){const lc=loopContact(p);if(lc&&lc.depth>depth){n=lc.n;depth=lc.depth;}}
   if(depth<=0)return;
   depth=Math.min(depth,1);
+  if(isTire){stickC++;wnAcc=add(wnAcc,n)}
   const vp=pointVel(r);const vn=dot(vp,n);
   let k=isTire?KS:200000,c=isTire?CS:16000;
   let Fn=k*depth-c*vn;if(depth>.5)Fn+=k*3*(depth-.5);if(Fn<0)Fn=0;if(Fn>450000)Fn=450000;
@@ -692,9 +834,15 @@ function physStep(){
  // air attitude control
  if(tireContacts===0)car.airT+=dt;else car.airT=0;
  car.groundN=tireContacts;
- const wt=(wallC>=2||car.climbT>0)?1:0;
- if(wallC>=2)car.wn=norm(wnAcc);else if(car.climbT>0)car.wn=car.climbN;
- car.wb+=(wt-car.wb)*Math.min(1,dt*(wt?10:4));
+ // 바닥 흡착: 바퀴가 닿은 면(경사·루프·곡면)에 붙음. 강한 충격 / 플랫폼 이탈 / 질소 상승(Space) 시 떨어짐
+ car.hitT=Math.max(0,(car.hitT||0)-dt);
+ if(lift&&(CFG.liftUse<=0||nitro>0))car.hitT=Math.max(car.hitT,.4);
+ if(stickC>=2){const nn=norm(wnAcc);const k=Math.min(1,dt*14);car.wn=norm([car.wn[0]+(nn[0]-car.wn[0])*k,car.wn[1]+(nn[1]-car.wn[1])*k,car.wn[2]+(nn[2]-car.wn[2])*k])}
+ const steep=clamp((.88-car.wn[1])/.38,0,1);            // 완만한 경사는 일반 중력, 가파를수록 흡착
+ const adh=clamp((spd-12)/16,0,1);                      // 속도가 낮으면 흡착 약함(루프는 속도 필요)
+ const can=WALL_ON&&stickC>=2&&car.hitT<=0;
+ const wt=can?steep*adh:0;
+ car.wb+=(wt-car.wb)*Math.min(1,dt*(can?10:18));
  const air=car.airT>.08;
  if(air){
   const MAXW=4.2;wb[0]=clamp(wb[0],-MAXW,MAXW);wb[1]=clamp(wb[1],-MAXW,MAXW);wb[2]=clamp(wb[2],-MAXW,MAXW);
@@ -702,8 +850,7 @@ function physStep(){
   if(!pit)wb[0]*=d;if(!rol)wb[2]*=d;if(!yaw)wb[1]*=d;
  }
  car.w=mV(R,wb);
- if(car.climbT>0){car.climbT-=dt;const nn=car.climbN;const ax=cross(upb,nn);const l=len(ax);if(dot(upb,nn)<.96&&l>1e-3)car.w=mul(ax,7/l)}
- // positions
+  // positions
  car.pos=add(car.pos,mul(car.v,dt));
  const w=car.w,q=car.q;
  const dq=[.5*dt*(w[0]*q[3]+w[1]*q[2]-w[2]*q[1]),.5*dt*(w[1]*q[3]+w[2]*q[0]-w[0]*q[2]),.5*dt*(w[2]*q[3]+w[0]*q[1]-w[1]*q[0]),-.5*dt*(w[0]*q[0]+w[1]*q[1]+w[2]*q[2])];
@@ -728,7 +875,8 @@ function collideObstacles(){
     let b2=cand[0];for(let i=0;i<4;i++)if(cand[i][0]<b2[0])b2=cand[i];best=b2}
    if(best[1][1]===1&&best[0]<.55)continue;   // 지붕/윗면은 스프링(surfaceAt)이 처리 — 충돌 마찰이 바퀴를 멈추던 버그 수정
    const bn=best[1];
-   if(bn[1]===0&&WALL_ON){
+   if(bn[1]===0&&b.top-p[1]<.35)continue;   // 얕게 잠긴 점(타이어 모서리)은 옆면 충돌 대신 윗면 스프링이 처리
+   if(false){
     if(car.climbT>0)continue;
     if(hi<8&&dot(upb,bn)>.45)continue;
     const sp=len(car.v);
@@ -755,7 +903,7 @@ function resolve(r,n,pen){
   const e=.1;
   const rxn=cross(r,n);const K=1/M+dot(cross(invIw(car.R,rxn),r),n);
   const j=-(1+e)*vn/K;
-  car.impact=Math.max(car.impact,-vn);
+  car.impact=Math.max(car.impact,-vn);if(-vn>8)car.hitT=.5;
   applyImpulse(r,mul(n,j));
   const vp2=pointVel(r);const vt=sub(vp2,mul(n,dot(vp2,n)));const vtl=len(vt);
   if(vtl>1e-4){const t=mul(vt,1/vtl);const Kt=1/M+dot(cross(invIw(car.R,cross(r,t)),r),t);const jt=Math.min(vtl/Kt,.35*j);applyImpulse(r,mul(t,-jt))}
@@ -1093,7 +1241,7 @@ function mapCollide(){
    let n=[MAP.N[t*3],MAP.N[t*3+1],MAP.N[t*3+2]];
    if(dot(n,sub(car.pos,cp))<0)n=[-n[0],-n[1],-n[2]];
    const s=dot(n,sub(p,cp));const pen=.4-s;if(pen<=0)continue;
-   if(WALL_ON&&Math.abs(n[1])<.5){
+   if(false){
     if(car.climbT>0)continue;
     if(hi<8&&dot(upb,n)>.45)continue;
     const sp=len(car.v);
@@ -1340,7 +1488,7 @@ function mkVAO(){
 function upSink(o,s){gl.bindBuffer(gl.ARRAY_BUFFER,o.buf);gl.bufferData(gl.ARRAY_BUFFER,s.a.subarray(0,s.n*12),gl.DYNAMIC_DRAW);o.n=s.n}
 function basisFromDir(d){let x=cross([0,1,0],d);if(len(x)<1e-3)x=[1,0,0];x=norm(x);const y=cross(d,x);return [x[0],y[0],d[0],x[1],y[1],d[1],x[2],y[2],d[2]]}
 function overRamp(x,z){for(const r of cellAt(x,z).r){const [u,w]=r.loc(x,z);if(r.inside(u,w))return true}return false}
-function flatFree(x,z,m){m=m||0;if(MAPMODE)return false;for(const [ox,oz] of [[0,0],[m,0],[-m,0],[0,m],[0,-m]]){if(overRamp(x+ox,z+oz)||pointInBox(x+ox,1,z+oz)||pointInBox(x+ox,5,z+oz))return false;if(surfaceAt(x+ox,3,z+oz,.5,.5)[0]>.2)return false}return true}
+function flatFree(x,z,m){m=m||0;if(MAPMODE)return false;if(inInfra(x,z,m+2))return false;for(const [ox,oz] of [[0,0],[m,0],[-m,0],[0,m],[0,-m]]){if(overRamp(x+ox,z+oz)||pointInBox(x+ox,1,z+oz)||pointInBox(x+ox,5,z+oz))return false;if(surfaceAt(x+ox,3,z+oz,.5,.5)[0]>.2)return false}return true}
 
 /* ---------- breakables / bonus cubes ---------- */
 const brk=[],brkGrid=new Map(),bon=[];
@@ -1817,7 +1965,7 @@ addEventListener('keydown',e=>{
  if(e.code==='Digit3'){resetCar(true);toast('처음 위치로')}
  if(e.code==='KeyF'){resetCar(false);toast('바로 세우기')}
  if(e.code==='KeyC'){cam.mode=(cam.mode+1)%3;toast(['추적 카메라','먼 카메라','1인칭 카메라'][cam.mode])}
- if(e.code==='KeyX'){WALL_ON=!WALL_ON;toast(WALL_ON?'벽 붙기 ON':'벽 붙기 OFF')}
+ if(e.code==='KeyX'){WALL_ON=!WALL_ON;toast(WALL_ON?'바닥 흡착 ON':'바닥 흡착 OFF')}
  if(e.code==='KeyB')buyNeedles();
  if(e.code==='KeyZ')fireNeedle();
  if(e.code==='KeyG')detonateMine();
@@ -1879,6 +2027,11 @@ function chatAdd(name,text,sys){
  while(log.children.length>7)log.removeChild(log.firstChild);
  setTimeout(()=>{d.style.opacity=.0;setTimeout(()=>d.remove(),600)},14000);
 }
+let MYCOL=null;try{const c=localStorage.getItem('ts_col');if(/^#[0-9a-f]{6}$/i.test(c||''))MYCOL=c}catch(e){}
+function hexTint(h){return [1,3,5].map(i=>parseInt(h.substr(i,2),16)/255)}
+function bindColor(){const el=$('n_col'),rs=$('n_colr');if(MYCOL)el.value=MYCOL;
+ el.addEventListener('input',()=>{MYCOL=el.value;try{localStorage.setItem('ts_col',MYCOL)}catch(e){}if(net.on)sendState()});
+ rs.addEventListener('click',()=>{MYCOL=null;try{localStorage.removeItem('ts_col')}catch(e){}el.value='#ffffff';if(net.on)sendState()})}
 function tintFor(id){let h=0;for(const c of id)h=(h*31+c.charCodeAt(0))%360;const s=.5,v=1,f=n=>{const k=(n+h/60)%6;return v-v*s*Math.max(0,Math.min(k,4-k,1))};return [f(5),f(3),f(1)]}
 function dispatch(ev,pl){
  if(!pl)return;
@@ -1893,7 +2046,7 @@ function onRemoteState(p){
  if(!r){const tag=document.createElement('div');tag.className='tag';$('tags').appendChild(tag);
   r={name:'',p:p.p.slice(),rp:p.p.slice(),q:p.q.slice(),rq:p.q.slice(),v:[0,0,0],b:0,tint:tintFor(p.i),tag,last:0};net.remotes.set(p.i,r);chatAdd('',cleanTxt(p.n||'?')+' 님이 입장했습니다',true)}
  r.name=cleanTxt(p.n||'?').slice(0,16);r.tag.textContent=r.name;
- r.p=p.p;r.q=p.q;r.v=p.v||[0,0,0];r.b=p.b?1:0;r.n=p.e||0;r.last=performance.now();
+ r.p=p.p;r.q=p.q;r.v=p.v||[0,0,0];r.b=p.b?1:0;r.n=p.e||0;if(typeof p.c==='string'&&/^#[0-9a-f]{6}$/i.test(p.c))r.tint=hexTint(p.c);else r.tint=tintFor(p.i);r.last=performance.now();
 }
 function removeRemote(id,say){const r=net.remotes.get(id);if(!r)return;r.tag.remove();net.remotes.delete(id);if(say)chatAdd('',r.name+' 님이 나갔습니다',true)}
 function loadScript(src){return new Promise((res,rej)=>{if(window.supabase)return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Supabase 라이브러리를 불러오지 못했습니다 (인터넷 필요)'));document.head.appendChild(s)})}
@@ -1958,7 +2111,7 @@ function netDisconnect(){
  $('n_conn').textContent='접속';$('netsum').textContent='🌐 온라인 (오프라인)';setNetMsg('접속 종료');
 }
 let netPrev=performance.now();
-function sendState(){if(!net.on||!net.send)return;net.send('s',{i:net.id,n:net.name,p:car.pos.map(v=>+v.toFixed(2)),q:car.q.map(v=>+v.toFixed(4)),v:car.v.map(v=>+v.toFixed(2)),b:car.boosting?1:0,e:+ND.ext.toFixed(2)})}
+function sendState(){if(!net.on||!net.send)return;net.send('s',{i:net.id,n:net.name,p:car.pos.map(v=>+v.toFixed(2)),q:car.q.map(v=>+v.toFixed(4)),v:car.v.map(v=>+v.toFixed(2)),b:car.boosting?1:0,e:+ND.ext.toFixed(2),c:MYCOL||0})}
 setInterval(()=>{if(document.hidden)sendState()},1000);   // 탭이 백그라운드여도 위치 계속 전송
 function netTick(dtf){
  const now=performance.now();
@@ -2009,7 +2162,7 @@ window.__sim={LOOPS,PLN,exitPlane,boardPlane,planeStep,teleport,net,netConnect,l
 (async()=>{
  try{
   GAME.coins=parseInt(lsGet('ts_coin'))||0;GAME.needles=parseInt(lsGet('ts_nd'))||0;GAME.missiles=parseInt(lsGet('ts_ms'))||0;$('g_buy').addEventListener('click',buyNeedles);$('g_buyms').addEventListener('click',buyMissiles);
-  bindSettings();bindMapUI();bindNetUI();buildCity();uploadWorld();setProg(.1);
+  bindSettings();bindMapUI();bindNetUI();bindColor();buildCity();uploadWorld();setProg(.1);
   await loadCar();
   $('loading').style.display='none';
   resetCar(true);updateCamera(.5);cam.init=false;updateCamera(1);
