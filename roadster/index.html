@@ -91,19 +91,22 @@ body.touch #toast{top:30%;font-size:18px}
 <body>
 <canvas id="c"></canvas>
 <div id="speedfx"></div><div id="wantedfx"></div><div id="feed"></div>
+<button id="helpx" title="설명창 닫기 (H)" style="position:fixed;left:14px;top:14px;z-index:30;display:none;cursor:pointer;border:1px solid rgba(255,255,255,.25);background:rgba(10,14,22,.75);color:#fff;border-radius:8px;padding:5px 10px;font-size:12px">ℹ 설명 (H)</button>
 <div id="help" class="panel">
+<div style="text-align:right;margin:-2px 0 2px"><button id="helpc" style="cursor:pointer;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff;border-radius:6px;padding:0 8px;font-size:12px">✕ 닫기 (H)</button></div>
   <h4>주행</h4>
   <kbd>W</kbd><kbd>S</kbd> 전진 / 후진(브레이크) · <kbd>A</kbd><kbd>D</kbd> 회전<br>
-  <kbd>Shift</kbd>(좌/우) 질소 부스터 · <kbd>Space</kbd> 상승(뜨기)
+  <kbd>Shift</kbd>(좌/우) 질소 부스터 · <kbd>Space</kbd> 상승(뜨기)<br>
+  <kbd>V</kbd> / <kbd>Ctrl</kbd> 급브레이크 (뒷바퀴 미끄러짐)
   <h4>공중 (뜬 상태)</h4>
   <kbd>W</kbd><kbd>S</kbd> 앞 / 뒤로 회전(피치) · <kbd>A</kbd><kbd>D</kbd> 좌 / 우 회전(롤)<br>
   <kbd>Q</kbd><kbd>E</kbd> 좌 / 우 요(Y축) 회전<br>※ 공중 회전·상승은 질소를 쓰지 않습니다 (부스터 추진 방식으로 계산)
   <h4>바닥 흡착</h4>
-  바퀴가 닿은 면(경사·루프·곡면)에 계속 붙어 달립니다. 속도가 필요하고, 강한 충돌·플랫폼 이탈·<kbd>Space</kbd> 상승 시 떨어집니다 · <kbd>X</kbd> ON/OFF
+  벽·경사·루프·곡면 등 바퀴가 닿은 모든 면이 바닥입니다(벽은 저속에서도 붙음, 루프는 속도 필요). 플랫폼 이탈·<kbd>Space</kbd> 상승·강한 충격 시 떨어집니다 · <kbd>X</kbd> ON/OFF
   <h4>코인 · 경찰 · 독침</h4>
   공중 플립/롤/스핀 착지, 깨지는 상자·유리·에어 보너스로 🪙 획득<br>
   경찰차를 박으면 <b>수배</b>(코인 ×3) · 정면 충돌 +코인/증원 · 옆구리 피격 = 체포(-50🪙)<br>
-  <kbd>B</kbd> 독침 5개 구매(100🪙) · <kbd>Z</kbd> 독침 발사 · <kbd>G</kbd> 꽂힌 독침 폭파<br><kbd>N</kbd> 추적 미사일 3개 구매(300🪙) · <kbd>T</kbd> 미사일 발사 (위력 독침의 3배)<br><kbd>1</kbd> 공항 · <kbd>2</kbd> 야구장 이동<br>✈ 비행기: 공항 발판 위에 서면 탑승 · <kbd>W</kbd><kbd>S</kbd> 피치 · <kbd>A</kbd><kbd>D</kbd> 롤(지상은 방향) · <kbd>Q</kbd><kbd>E</kbd> 방향 · <kbd>Shift</kbd> 추력↑ <kbd>Space</kbd> 추력↓ · <kbd>R</kbd> 내리기
+  <kbd>B</kbd> 독침 5개 구매(100🪙) · <kbd>Z</kbd> 독침 발사 · <kbd>G</kbd> 꽂힌 독침 폭파<br><kbd>N</kbd> 추적 미사일 3개 구매(300🪙) · <kbd>T</kbd> 미사일 발사 (위력 독침의 3배)<br><kbd>1</kbd> 공항 · <kbd>2</kbd> 야구장 · <kbd>3</kbd> 점프맵 · <kbd>4</kbd> 경찰서 이동<br>✈ 비행기: 공항 발판 위에 서면 탑승 · <kbd>W</kbd><kbd>S</kbd> 피치 · <kbd>A</kbd><kbd>D</kbd> 롤(지상은 방향) · <kbd>Q</kbd><kbd>E</kbd> 방향 · <kbd>Shift</kbd> 추력↑ <kbd>Space</kbd> 추력↓ · <kbd>R</kbd> 내리기
   <h4>기타</h4>
   <kbd>R</kbd> 처음 위치 · <kbd>F</kbd> 바로 세우기 · <kbd>C</kbd> 카메라 · <kbd>M</kbd> 소리
 </div>
@@ -148,10 +151,19 @@ body.touch #toast{top:30%;font-size:18px}
    <label>URL<input id="n_url" placeholder="https://xxxx.supabase.co"></label>
    <label>anon key<input id="n_key" placeholder="eyJ..."></label>
   </details>
+  <details id="devp" style="display:none"><summary>🛠 개발자 도구</summary>
+   <label>코인 보내기 대상<select id="d_to"><option value="*">전체</option></select></label>
+   <label>금액<input id="d_amt" type="number" min="1" max="1000000" value="1000"></label>
+   <button id="d_give" style="width:100%">💸 코인 보내기</button>
+   <label>공지문 (처음 접속한 플레이어에게 1회 표시)<textarea id="d_ann" rows="4" maxlength="600" style="width:100%;box-sizing:border-box" placeholder="업데이트 내용 / 공지"></textarea></label>
+   <button id="d_post" style="width:100%">📢 공지 등록</button>
+   <details><summary>공지 저장용 Supabase SQL</summary><textarea id="d_sql" readonly rows="7" style="width:100%;box-sizing:border-box;font-size:11px"></textarea></details>
+  </details>
   <div id="n_msg">Supabase 설정이 없으면 같은 브라우저 탭끼리만 연결되는 데모 모드로 동작합니다</div>
 </details>
 <div id="chat" class="panel" style="background:none;border:none;backdrop-filter:none;padding:0"><div id="chatlog"></div><input id="chatin" maxlength="120" placeholder="채팅 입력 후 Enter (Esc 취소)"></div>
 <div id="toast"></div>
+<div id="ann" style="display:none;position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);align-items:center;justify-content:center"><div class="panel" style="position:static;max-width:min(460px,90vw);max-height:80vh;overflow:auto;padding:18px 20px;pointer-events:auto"><h3 style="margin:0 0 8px">📢 공지</h3><div id="ann_t" style="white-space:pre-wrap;line-height:1.6;font-size:14px"></div><button id="ann_ok" style="width:100%;margin-top:14px;padding:8px;cursor:pointer">확인</button></div></div>
 <div id="loading"><div>Tesla 모델 불러오는 중…</div><div class="bar"><i id="lbar"></i></div></div>
 
 <script>
@@ -448,7 +460,7 @@ function buildCity(){
  // giant sky ramp outside city (north +z)
  addRamp(60,1080,0,22,rampProfiles.mega(60,140));
  // ground quad (streets) : huge
- mute=false;buildGame();buildExtras();
+ mute=false;buildGame();buildExtras();buildJumpMap();
  const G=4500;quad([-G,0,-G],[G,0,-G],[G,0,G],[-G,0,G],[0,1,0],[.1,.1,.11],0);
 }
 function mulberry32(a){return mulberry(a)}
@@ -554,13 +566,15 @@ function planeStep(dt){
  const R2=pl.R;
  for(const loc of [[0,0,4.8],[0,.3,-4.6],[7.3,0,.4],[-7.3,0,.4],[0,1.2,0]]){const p=add(pl.pos,mV(R2,loc));if(pointInBox(p[0],p[1],p[2])){planeCrash(pl);return}}
 }
+function remotePlaneIdx(){const o=new Map();for(const r of net.remotes.values())if(r.pl>=0)o.set(r.pl,r);return o}
 function planeTick(dt){
+ const occ=remotePlaneIdx();
  if(!PLN.armed){let m=1e9;for(const pl of PLN.list)m=Math.min(m,Math.hypot(car.pos[0]-pl.pad[0],car.pos[2]-pl.pad[1]));if(m>9)PLN.armed=true}
  for(const pl of PLN.list){
   if(pl.dead>0){pl.dead-=dt;if(pl.dead<=0)planeReset(pl);continue}
   if(PLN.act===pl){pl.spin+=(8+pl.thr*80)*dt;continue}
   pl.spin+=Math.max(0,3-pl.spin%1)*0;
-  if(!PLN.act&&PLN.armed){const dx=car.pos[0]-pl.pad[0],dz=car.pos[2]-pl.pad[1];if(dx*dx+dz*dz<12&&car.pos[1]<4&&len(car.v)<16){boardPlane(pl);continue}}
+  if(!PLN.act&&PLN.armed&&!occ.has(PLN.list.indexOf(pl))){const dx=car.pos[0]-pl.pad[0],dz=car.pos[2]-pl.pad[1];if(dx*dx+dz*dz<12&&car.pos[1]<4&&len(car.v)<16){boardPlane(pl);continue}}
   if(pl.pos[1]>1.5){pl.v=add(pl.v,[0,-9.8*dt,0]);pl.pos=add(pl.pos,mul(pl.v,dt));const g=surfaceAt(pl.pos[0],pl.pos[1],pl.pos[2],2,2)[0];if(pl.pos[1]<g+1.4){pl.pos[1]=g+1.4;pl.v=[0,0,0]}}
   else pl.v=mul(pl.v,Math.exp(-dt*1.2));
   pl.pos=add(pl.pos,mul([pl.v[0],0,pl.v[2]],dt));
@@ -570,7 +584,10 @@ function planeTick(dt){
 }
 function drawPlanes(s,t){
  if(MAPMODE)return;
- for(const pl of PLN.list){
+ const occ=remotePlaneIdx();
+ for(let pi=0;pi<PLN.list.length;pi++){
+  let pl=PLN.list[pi];const ro=occ.get(pi);
+  if(ro)pl={pos:ro.rp,R:quatToMat(ro.rq),spin:t*30,col:pl.col,pad:pl.pad,remote:true,dead:0};
   if(pl.dead>0)continue;
   if(Math.hypot(pl.pos[0]-car.pos[0],pl.pos[2]-car.pos[2])>900&&PLN.act!==pl)continue;
   const R=pl.R,p=pl.pos,ax=[R[0],R[3],R[6]],ay=[R[1],R[4],R[7]],az=[R[2],R[5],R[8]];
@@ -588,7 +605,7 @@ function drawPlanes(s,t){
   const c=Math.cos(pl.spin),sn=Math.sin(pl.spin);const a=add(mul(ax,c),mul(ay,sn)),b=add(mul(ax,-sn),mul(ay,c));
   dbox(s,at(0,0,5.75),[a[0],b[0],az[0],a[1],b[1],az[1],a[2],b[2],az[2]],[.1,1.9,.06],[.12,.12,.12],3);
   dbox(s,at(0,0,5.7),R,[.2,.2,.25],rd,3);
-  if(PLN.act!==pl){const pu=.6+.4*Math.sin(t*4);const g=surfaceAt(pl.pad[0],50,pl.pad[1],50,50)[0];
+  if(PLN.act!==pl&&!pl.remote){const pu=.6+.4*Math.sin(t*4);const g=surfaceAt(pl.pad[0],50,pl.pad[1],50,50)[0];
    dbox(s,[pl.pad[0],g+.12,pl.pad[1]],I3,[2.4,.07,2.4],[0,.9*pu,1*pu],7);dbox(s,[pl.pad[0],g+4,pl.pad[1]],I3,[.12,4,.12],[0,.8,1],7)}
  }
 }
@@ -621,6 +638,81 @@ function buildPark(cx,cz,rnd){
   if(Math.abs(x-cx)<5||Math.abs(z-cz)<5)continue;if(Math.abs(x-pondC[0])<17&&Math.abs(z-pondC[1])<14)continue;if(Math.abs(x-sx)<20&&Math.abs(z-sz)<14)continue;
   tree(x,z,rnd,true);n++}
 }
+
+/* ---------- 점프맵 (오비 코스): 떠 있는 플랫폼 + 체크포인트 + 낙하 시 복귀 ---------- */
+const JUMP={x:0,z:1500,cps:[],cp:null,plats:[],fin:null,done:false,lo:[-80,1420,420,2000]};
+function buildJumpMap(){
+ const JX=JUMP.x,JZ=JUMP.z;
+ const DIR=[[0,1],[1,0],[0,-1],[-1,0]],YAW=[0,90,180,-90];
+ let cur={x:JX,z:JZ,y:0,d:0};
+ const pal=[[.95,.3,.3],[.98,.65,.15],[.95,.9,.2],[.3,.85,.4],[.25,.7,.95],[.6,.4,.95],[.95,.4,.75]];let pc=0;
+ const H=(len,wid,d)=>{const v=DIR[d];return v[0]?[len/2,wid/2]:[wid/2,len/2]};   // x,z half sizes
+ // 플랫폼: 현재 진행점에서 gap 만큼 띄운 뒤 길이 len. kick: 끝 점프대 상승량
+ function plat(gap,len,wid,dy,o){o=o||{};const v=DIR[cur.d];
+  const c0=gap+len/2;const cx=cur.x+v[0]*c0,cz=cur.z+v[1]*c0;const y=cur.y+dy;const [hx,hz]=H(len,wid,cur.d);
+  const col=o.col||pal[pc++%pal.length];
+  solid(cx-hx,y-1.5,cz-hz,cx+hx,y,cz+hz,col,3);
+  // 가장자리 발광 라인
+  addBox(cx-hx,y,cz-hz,cx+hx,y+.12,cz-hz+.35,[1,1,1],7);addBox(cx-hx,y,cz+hz-.35,cx+hx,y+.12,cz+hz,[1,1,1],7);
+  addBox(cx-hx,y,cz-hz,cx-hx+.35,y+.12,cz+hz,[1,1,1],7);addBox(cx+hx-.35,y,cz-hz,cx+hx,y+.12,cz+hz,[1,1,1],7);
+  const P={x0:cx-hx,x1:cx+hx,z0:cz-hz,z1:cz+hz,top:y,cx,cz,yaw:YAW[cur.d]};JUMP.plats.push(P);
+  if(o.cp){JUMP.cps.push(P);P.cp=true;addBox(cx-1.5,y,cz-1.5,cx+1.5,y+.2,cz+1.5,[.2,1,.4],7);addBox(cx-.2,y,cz-.2,cx+.2,y+5,cz+.2,[.2,1,.4],7)}
+  if(o.kick){const kl=o.kl||7,sx=cx+v[0]*(len/2-kl),sz=cz+v[1]*(len/2-kl);addRamp(sx,sz,YAW[cur.d],Math.min(wid,12),[[0,y],[kl,y+o.kick]])}
+  if(o.coins)for(let i=0;i<o.coins;i++)bon.push({c:[cx+v[0]*(-len/2+4+i*(len-8)/Math.max(1,o.coins-1)),y+1.8,cz+v[1]*(-len/2+4+i*(len-8)/Math.max(1,o.coins-1))],alive:true,t:0});
+  cur={x:cx+v[0]*len/2,z:cz+v[1]*len/2,y,d:cur.d,cx,cz};return P}
+ function turn(nd){cur.d=nd}
+ // 진입 램프(지상 → 6m) + 시작 발판
+ F(JX-30,JZ-70,JX+30,JZ+10,.07,[.12,.13,.16],3);
+ addRamp(JX,JZ-60,0,16,[[0,0],[56,6]]);
+ cur={x:JX,z:JZ-4,y:6,d:0};
+ plat(0,40,22,0,{col:[.15,.7,.35],cp:true,kick:1.6});                 // 시작 발판(체크포인트)
+ // A: 점점 넓어지는 갭
+ let gaps=[5,8,11,14,17];
+ for(const g of gaps)plat(g,20,12,0,{kick:1.8,coins:2});
+ plat(10,24,16,0,{col:[.2,.9,.4],cp:true,kick:2.2});         // 체크포인트 1
+ // B: 계단 오르기 (갭 6 · +2.5m)
+ for(let i=0;i<5;i++)plat(6,14,12,2.5,{kick:3,coins:2});
+ plat(8,30,26,2,{col:[.2,.9,.4],cp:true});                   // 체크포인트 2 (회전 구간)
+ // C: 회전 후 좁은 다리
+ turn(1);
+ plat(0,12,14,0);   // 모서리 보정 발판
+ plat(4,60,4.5,0,{kick:1,coins:4});
+ plat(10,20,14,0,{col:[.2,.9,.4],cp:true,kick:1.8});         // 체크포인트 3
+ // D: 지그재그 징검다리 (좌우로 어긋남)
+ for(let i=0;i<8;i++){
+  const side=i%2?1:-1;const v=DIR[cur.d];const px=-v[1],pz=v[0];     // 진행방향의 옆
+  const gx=cur.x+px*side*5,gz=cur.z+pz*side*5;cur.x=gx;cur.z=gz;
+  plat(5,11,10,0,{kick:1.4,coins:1});
+ }
+ // 줄 맞춤 복귀 + 체크포인트
+ plat(6,26,16,1.5,{col:[.2,.9,.4],cp:true});                  // 체크포인트 4
+ // E: 대형 점프 (질소 + Space 상승 필요)
+ plat(0,60,16,0,{col:[.6,.4,.95],kick:6,kl:18});
+ const fin=plat(40,44,40,5,{col:[1,.8,.1],cp:true});
+ JUMP.fin=fin;
+ // 피니시 장식
+ addBox(fin.cx-20,fin.top,fin.cz+18,fin.cx-18,fin.top+12,fin.cz+20,[1,.85,.1],7);addBox(fin.cx+18,fin.top,fin.cz+18,fin.cx+20,fin.top+12,fin.cz+20,[1,.85,.1],7);addBox(fin.cx-20,fin.top+11,fin.cz+18,fin.cx+20,fin.top+12.4,fin.cz+20,[1,.4,.1],7);
+ for(let i=0;i<12;i++)bon.push({c:[fin.cx-14+i*2.6,fin.top+2,fin.cz+(i%2?3:-3)],alive:true,t:0});
+ // 시작 표지
+ addBox(JX-14,0,JZ-62,JX-12.5,10,JZ-60.5,[1,.9,.2],7);addBox(JX+12.5,0,JZ-62,JX+14,10,JZ-60.5,[1,.9,.2],7);addBox(JX-14,9,JZ-62,JX+14,10.4,JZ-60.5,[.2,.9,.4],7);
+ JUMP.lo=[JX-100,JZ-120,cur.x+120,Math.max(cur.z,JZ)+140];
+ let mx=1e9,Mx=-1e9,mz=1e9,Mz=-1e9;for(const p of JUMP.plats){mx=Math.min(mx,p.x0);Mx=Math.max(Mx,p.x1);mz=Math.min(mz,p.z0);Mz=Math.max(Mz,p.z1)}
+ JUMP.lo=[mx-150,JZ-150,Mx+150,Mz+250];
+}
+let jumpFallT=0;
+function jumpTick(dt){
+ const L=JUMP.lo,x=car.pos[0],z=car.pos[2],y=car.pos[1];
+ if(PLN.act||x<L[0]||x>L[2]||z<L[1]||z>L[3]){return}
+ for(const P of JUMP.plats){
+  if(x>P.x0&&x<P.x1&&z>P.z0&&z<P.z1&&y>P.top-.5&&y<P.top+4){
+   if(P.cp&&JUMP.cp!==P){JUMP.cp=P;if(P===JUMP.fin){if(!JUMP.done){JUMP.done=true;addCoins(100,'점프맵 클리어!');toast('🏁 점프맵 클리어!')}}else toast('체크포인트 저장!')}
+   break}
+ }
+ if(JUMP.cp&&y<1.2){jumpFallT+=dt;if(jumpFallT>.5){jumpFallT=0;const P=JUMP.cp;
+   car.pos=[P.cx,P.top+.9,P.cz];car.q=quatFromAxisAngle([0,1,0],P.yaw*D2R);car.R=quatToMat(car.q);car.v=[0,0,0];car.w=[0,0,0];car.wb=0;car.climbT=0;cam.init=false;toast('체크포인트로 복귀')}}
+ else jumpFallT=0;
+}
+
 function buildExtras(){
  const rnd=mulberry32(5150);
  // ---------------- 공항 (동쪽 x≈1300)
@@ -752,6 +844,7 @@ function physStep(){
  const steerIn=(keys.KeyA?1:0)-(keys.KeyD?1:0);
  const boostKey=!!(keys.ShiftLeft||keys.ShiftRight);
  const lift=!!keys.Space;
+ const brakeOn=!!(keys.KeyV||keys.ControlLeft||keys.ControlRight);
  // pedal / steering smoothing
  car.thr+= (throttleIn-car.thr)*Math.min(1,dt*12);
  car.steer+=(steerIn-car.steer)*Math.min(1,dt*(steerIn===0?14:10));
@@ -765,18 +858,19 @@ function physStep(){
  else{sinceUse+=dt;if(sinceUse>=CFG.delay&&nitro<CFG.cap)nitro=Math.min(CFG.cap,nitro+CFG.cap/Math.max(.1,CFG.rech)*dt)}
  car.boosting=boosting;
  const gdir=norm(add(mul([0,-1,0],1-car.wb),mul(car.wn,-car.wb)));
- let F=mul(gdir,M*GR);if(car.wb>.01)F=add(F,mul(car.wn,-M*GR*.3*car.wb));
+ let F=mul(gdir,M*GR);if(car.wb>.01)F=add(F,mul(car.wn,-M*GR*(car.onWall?.7:.3)*car.wb));
  let T=[0,0,0];
  const addF=(f,r)=>{F=add(F,f);T=add(T,cross(r,f))};
  // contacts
  loopUpdate();
- let tireContacts=0,slipMax=0,stickC=0,wnAcc=[0,0,0];
+ let tireContacts=0,slipMax=0,stickC=0,wnAcc=[0,0,0],wallC=0,wallAcc=[0,0,0];
  const sFwd=dot(car.v,fwd);
  const processPoint=(loc,isTire,front)=>{
   const r=mV(R,loc);const p=add(car.pos,r);
   const sf=surfaceAt(p[0],p[1],p[2],.55,1.3);let n=sf[1];
   let depth=sf[0]-p[1];
   if(LOOPS.length){const lc=loopContact(p);if(lc&&lc.depth>depth){n=lc.n;depth=lc.depth;}}
+  if(isTire&&WALL_ON){const wl=wallAt(p,upb,car.wb>.5?1.9:(car.wb>.2?1.4:.9));if(wl&&wl.depth>depth){n=wl.n;depth=Math.min(wl.depth,.22);wallC++;wallAcc=add(wallAcc,wl.n)}}
   if(depth<=0)return;
   depth=Math.min(depth,1);
   if(isTire){stickC++;wnAcc=add(wnAcc,n)}
@@ -800,8 +894,10 @@ function physStep(){
     else Fx=-(-car.thr)*32000/4*.7*Math.max(0,1-Math.pow(Math.abs(sFwd)/14,2));
    }else{Fx=-clamp(vf*60,-300,300)}
    Fx-=Math.sign(vf)*Math.min(Math.abs(vf)*30,.012*Fn);
-   const lim=1.2*Fn;
+   if(brakeOn)Fx=-clamp(vf*(M/4)/(dt*2),-1.7*Fn,1.7*Fn);
+   const lim=(brakeOn?1.7:1.2)*Fn;
    let Fy=clamp(-vl*(M/4)/.06,-lim,lim);
+   if(brakeOn&&!front&&spd>8)Fy*=.55;   // 급브레이크 시 뒷바퀴가 미끄러짐(드리프트)
    const fxm=Math.sqrt(Math.max(0,lim*lim-Fy*Fy));Fx=clamp(Fx,-fxm,fxm);
    slipMax=Math.max(slipMax,Math.abs(vl)*(Fn>0?1:0));
    addF(add(mul(f,Fx),mul(lat,Fy)),add(sub(r,mul(upb,dot(r,upb))),mul(upb,-.12)));
@@ -837,10 +933,12 @@ function physStep(){
  // 바닥 흡착: 바퀴가 닿은 면(경사·루프·곡면)에 붙음. 강한 충격 / 플랫폼 이탈 / 질소 상승(Space) 시 떨어짐
  car.hitT=Math.max(0,(car.hitT||0)-dt);
  if(lift&&(CFG.liftUse<=0||nitro>0))car.hitT=Math.max(car.hitT,.4);
- if(stickC>=2){const nn=norm(wnAcc);const k=Math.min(1,dt*14);car.wn=norm([car.wn[0]+(nn[0]-car.wn[0])*k,car.wn[1]+(nn[1]-car.wn[1])*k,car.wn[2]+(nn[2]-car.wn[2])*k])}
+ if(car.climbT>0)car.wn=car.climbN;
+ else if(stickC>=2){const nn=norm(wallC>=2?wallAcc:wnAcc);const k=Math.min(1,dt*14);car.wn=norm([car.wn[0]+(nn[0]-car.wn[0])*k,car.wn[1]+(nn[1]-car.wn[1])*k,car.wn[2]+(nn[2]-car.wn[2])*k])}
  const steep=clamp((.88-car.wn[1])/.38,0,1);            // 완만한 경사는 일반 중력, 가파를수록 흡착
- const adh=clamp((spd-12)/16,0,1);                      // 속도가 낮으면 흡착 약함(루프는 속도 필요)
- const can=WALL_ON&&stickC>=2&&car.hitT<=0;
+ const adh=(wallC>=2||car.climbT>0)?clamp((spd-1.5)/4,0,1):clamp((spd-12)/16,0,1);                      // 속도가 낮으면 흡착 약함(루프는 속도 필요)
+ if(wallC>=2||car.climbT>0)car.hitT=0;   // 벽은 바닥으로 취급: 충돌로 안 떨어짐
+ const can=WALL_ON&&(stickC>=2||car.climbT>0)&&car.hitT<=0;
  const wt=can?steep*adh:0;
  car.wb+=(wt-car.wb)*Math.min(1,dt*(can?10:18));
  const air=car.airT>.08;
@@ -850,6 +948,9 @@ function physStep(){
   if(!pit)wb[0]*=d;if(!rol)wb[2]*=d;if(!yaw)wb[1]*=d;
  }
  car.w=mV(R,wb);
+ if(car.climbT>0){car.climbT-=dt;const nn=car.climbN;const ax=cross(upb,nn);const l=len(ax);if(dot(upb,nn)<.96&&l>1e-3)car.w=mul(ax,7/l)}
+ else if(car.wb>.25){const wn=car.wn,ax=cross(upb,wn),wy=dot(car.w,wn);car.w=add(mul(wn,wy),mul(ax,10*Math.min(1,car.wb)))}   // 면에 붙어있는 동안 차체를 면에 정렬·안정화(쿠당탕 방지)
+ car.onWall=wallC>=2||car.climbT>0;
   // positions
  car.pos=add(car.pos,mul(car.v,dt));
  const w=car.w,q=car.q;
@@ -876,12 +977,12 @@ function collideObstacles(){
    if(best[1][1]===1&&best[0]<.55)continue;   // 지붕/윗면은 스프링(surfaceAt)이 처리 — 충돌 마찰이 바퀴를 멈추던 버그 수정
    const bn=best[1];
    if(bn[1]===0&&b.top-p[1]<.35)continue;   // 얕게 잠긴 점(타이어 모서리)은 옆면 충돌 대신 윗면 스프링이 처리
-   if(false){
+   if(bn[1]===0&&WALL_ON){
     if(car.climbT>0)continue;
     if(hi<8&&dot(upb,bn)>.45)continue;
     const sp=len(car.v);
     const slow=sp<55.5; // 200km/h 미만이면 벽에 닿는 즉시 항상 붙음
-    if(hi>=8&&(slow?(sp>2&&dot(fwdb,mul(bn,-1))>.2):(sp>9&&keys.KeyW&&dot(fwdb,mul(bn,-1))>.65))&&(b.x1-b.x0>3)){car.climbT=.7;car.climbN=bn;car.pos=add(car.pos,mul(bn,1.0));car.v=add(sub(car.v,mul(bn,dot(car.v,bn))),[0,Math.max(sp,14)*.85,0]);toast('벽 타기!');continue}
+    if((hi>=8||(sp>6&&-dot(car.v,bn)>3))&&(slow?(sp>2&&dot(fwdb,mul(bn,-1))>.2):(sp>9&&keys.KeyW&&dot(fwdb,mul(bn,-1))>.65))&&(b.x1-b.x0>3)){car.climbT=.7;car.climbN=bn;car.pos=add(car.pos,mul(bn,1.0));car.v=add(sub(car.v,mul(bn,dot(car.v,bn))),[0,Math.max(sp,14)*.85,0]);toast('벽 타기!');continue}
    }
    resolve(r,bn,best[0]);
   }
@@ -903,7 +1004,7 @@ function resolve(r,n,pen){
   const e=.1;
   const rxn=cross(r,n);const K=1/M+dot(cross(invIw(car.R,rxn),r),n);
   const j=-(1+e)*vn/K;
-  car.impact=Math.max(car.impact,-vn);if(-vn>8)car.hitT=.5;
+  car.impact=Math.max(car.impact,-vn);if(-vn>(car.wb>.3?20:8))car.hitT=.5;
   applyImpulse(r,mul(n,j));
   const vp2=pointVel(r);const vt=sub(vp2,mul(n,dot(vp2,n)));const vtl=len(vt);
   if(vtl>1e-4){const t=mul(vt,1/vtl);const Kt=1/M+dot(cross(invIw(car.R,cross(r,t)),r),t);const jt=Math.min(vtl/Kt,.35*j);applyImpulse(r,mul(t,-jt))}
@@ -1241,7 +1342,7 @@ function mapCollide(){
    let n=[MAP.N[t*3],MAP.N[t*3+1],MAP.N[t*3+2]];
    if(dot(n,sub(car.pos,cp))<0)n=[-n[0],-n[1],-n[2]];
    const s=dot(n,sub(p,cp));const pen=.4-s;if(pen<=0)continue;
-   if(false){
+   if(WALL_ON&&Math.abs(n[1])<.5){
     if(car.climbT>0)continue;
     if(hi<8&&dot(upb,n)>.45)continue;
     const sp=len(car.v);
@@ -1838,7 +1939,7 @@ function drawMissiles(s,t){
 const dynSink=mkSink(60000),dynO=mkVAO();
 function gameTick(dtf){
  GAME.t+=dtf;
- breakTick(dtf);debTick(dtf);policeTick(dtf);needleTick(dtf);missileTick(dtf);planeTick(dtf);
+ breakTick(dtf);debTick(dtf);policeTick(dtf);needleTick(dtf);missileTick(dtf);planeTick(dtf);jumpTick(dtf);
  coinEl.textContent=GAME.dev?'∞':GAME.coins;ndEl.textContent=GAME.needles;msEl.textContent=GAME.missiles;
  wEl.textContent=GAME.wanted>0?('🚨 '+'★'.repeat(GAME.wanted)+'☆'.repeat(5-GAME.wanted)+'  ×3'):'';
  wfx.className=GAME.wanted>0?'on':'';
@@ -1933,7 +2034,7 @@ function render(){
   gl.disable(gl.POLYGON_OFFSET_FILL);gl.depthMask(true);gl.disable(gl.BLEND);}
  drawGame(vp);
  // car
- if(carVAO){drawCar(vp,car.pos,car.R,car.boosting,[1,1,1]);for(const r of net.remotes.values())drawCar(vp,r.rp,quatToMat(r.rq),r.b,r.tint)}
+ if(carVAO){drawCar(vp,car.pos,car.R,car.boosting,[1,1,1]);for(const r of net.remotes.values())if(!(r.pl>=0))drawCar(vp,r.rp,quatToMat(r.rq),r.b,r.tint)}
  // particles
  gl.useProgram(partP.p);gl.uniformMatrix4fv(partP.u.uVP,false,vp);gl.uniform1f(partP.u.uScale,canvas.height/(2*Math.tan(cam.fov/2)));
  gl.enable(gl.BLEND);gl.depthMask(false);
@@ -1955,14 +2056,16 @@ function frame(ts){
 /* ============================================================ input */
 addEventListener('keydown',e=>{
  if(e.target&&e.target.tagName==='INPUT')return;
- if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'].includes(e.code))e.preventDefault();
+ if(e.code==='ControlLeft'||e.code==='ControlRight')e.preventDefault();if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'].includes(e.code))e.preventDefault();
  if(e.code==='Enter'){e.preventDefault();const ci=$('chatin');ci.style.display='block';ci.focus();for(const k in keys)keys[k]=false;return}
  if(e.repeat)return;keys[e.code]=true;initAudio();if(actx&&actx.state==='suspended')actx.resume();
  if(e.code==='ArrowUp')keys.KeyW=true;if(e.code==='ArrowDown')keys.KeyS=true;if(e.code==='ArrowLeft')keys.KeyA=true;if(e.code==='ArrowRight')keys.KeyD=true;
- if(e.code==='KeyR'){if(PLN.act)exitPlane();else{resetCar(true);toast('처음 위치로')}}
+ if(e.code==='KeyR'){if(PLN.act)exitPlane();else{resetCar(true);JUMP.cp=null;JUMP.done=false;toast('처음 위치로')}}
  if(e.code==='Digit1')teleport(1240,0,90,'✈ 공항');
  if(e.code==='Digit2')teleport(-1350,-135,0,'⚾ 야구장');
- if(e.code==='Digit3'){resetCar(true);toast('처음 위치로')}
+ if(e.code==='Digit3'){teleport(JUMP.x,JUMP.z-80,0,'🏁 점프맵');JUMP.cp=null;JUMP.done=false}
+ if(e.code==='Digit4')teleport(0,-140,0,'🚔 경찰서');
+ if(e.code==='KeyH')toggleHelp();
  if(e.code==='KeyF'){resetCar(false);toast('바로 세우기')}
  if(e.code==='KeyC'){cam.mode=(cam.mode+1)%3;toast(['추적 카메라','먼 카메라','1인칭 카메라'][cam.mode])}
  if(e.code==='KeyX'){WALL_ON=!WALL_ON;toast(WALL_ON?'바닥 흡착 ON':'바닥 흡착 OFF')}
@@ -1989,11 +2092,11 @@ addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
   ['KeyQ','↺','Q','sm','left:12px;bottom:92px',1],['KeyE','↻','E','sm','left:64px;bottom:92px',1],
   ['KeyS','▼','후진','big','right:92px;bottom:14px',1],['KeyW','▲','가속','big','right:12px;bottom:14px',1],
   ['ShiftLeft','🔥','부스터','big','right:92px;bottom:94px',1],['Space','⤴','상승','big','right:12px;bottom:94px',1],
-  ['KeyZ','💉','Z','sm','right:12px;bottom:174px',0],['KeyG','💥','G','sm','right:62px;bottom:174px',0],['KeyT','🚀','T','sm','right:112px;bottom:174px',0],
+  ['KeyV','🛑','급브레이크','sm','left:116px;bottom:92px',1],['KeyZ','💉','Z','sm','right:12px;bottom:174px',0],['KeyG','💥','G','sm','right:62px;bottom:174px',0],['KeyT','🚀','T','sm','right:112px;bottom:174px',0],
   ['KeyB','🛒','B','sm','right:12px;bottom:218px',0],['KeyN','🛒','N','sm','right:62px;bottom:218px',0],
   ['KeyC','🎥','C','sm','right:112px;bottom:218px',0],['KeyX','🧗','X','sm','right:162px;bottom:218px',0],
   ['KeyR','🏠','R','sm','right:162px;bottom:174px',0],['KeyF','↩','F','sm','right:212px;bottom:174px',0],
-  ['KeyM','🔇','M','sm','right:212px;bottom:218px',0],['Digit1','✈','1','sm','left:12px;bottom:138px',0],['Digit2','⚾','2','sm','left:64px;bottom:138px',0],
+  ['KeyM','🔇','M','sm','right:212px;bottom:218px',0],['Digit1','✈','1','sm','left:12px;bottom:138px',0],['Digit2','⚾','2','sm','left:64px;bottom:138px',0],['Digit3','🏁','3','sm','left:116px;bottom:138px',0],['Digit4','🚔','4','sm','left:168px;bottom:138px',0],
   ['CHAT','💬','','sm','left:116px;bottom:92px',0]];
  for(const [code,ic,lb,sz,pos,hold] of L){
   const b=document.createElement('div');b.className='b '+sz;b.style.cssText=pos;b.innerHTML=ic+(lb?'<small>'+lb+'</small>':'');tc.appendChild(b);
@@ -2029,7 +2132,58 @@ function chatAdd(name,text,sys){
 }
 let MYCOL=null;try{const c=localStorage.getItem('ts_col');if(/^#[0-9a-f]{6}$/i.test(c||''))MYCOL=c}catch(e){}
 function hexTint(h){return [1,3,5].map(i=>parseInt(h.substr(i,2),16)/255)}
-function bindColor(){const el=$('n_col'),rs=$('n_colr');if(MYCOL)el.value=MYCOL;
+function toggleHelp(){const h=$('help'),o=$('helpx');const hide=h.style.display!=='none';h.style.display=hide?'none':'';o.style.display=hide?'block':'none';try{localStorage.setItem('ts_help',hide?'0':'1')}catch(e){}}
+function bindHelp(){$('helpc').addEventListener('click',toggleHelp);$('helpx').addEventListener('click',toggleHelp);let v='1';try{v=localStorage.getItem('ts_help')||'1'}catch(e){}if(v==='0')toggleHelp()}
+
+/* ---------- 개발자 기능: 코인 보내기 · 공지문 ---------- */
+const UPDATE_NOTE={id:'2026-11-19',text:'업데이트 내용\n• 바닥 흡착(벽 포함) · 급브레이크(V/Ctrl)\n• 비행기가 다른 플레이어에게도 보입니다\n• 점프맵(3번) · 경찰서 이동(4번)\n• 터널·주차장·파쿠르 타워 · 한국식 야구장\n• 서스펜션은 설정에서 켤 수 있습니다\n• 내 차 색상을 다른 사람 화면에 지정할 수 있습니다'};
+const annQ=[];let annOpen=false;
+function showAnn(text,key){annQ.push([text,key]);if(!annOpen)nextAnn()}
+function nextAnn(){const it=annQ.shift();if(!it){annOpen=false;$('ann').style.display='none';return}annOpen=true;$('ann_t').textContent=it[0];$('ann').style.display='flex';$('ann').dataset.key=it[1]}
+function annDone(){const k=$('ann').dataset.key;if(k)lsSet('ts_ann_'+k.split(':')[0],k);nextAnn()}
+function isDevRemote(id){const r=net.remotes.get(id);return !!r&&r.name===DEV_ID}
+function onGift(pl){
+ if(!pl||(pl.to!=='*'&&pl.to!==net.id)||!isDevRemote(pl.f))return;
+ const amt=Math.max(0,Math.min(1000000,Math.floor(+pl.amt||0)));if(!amt)return;
+ if(!GAME.dev){GAME.coins+=amt;saveGame()}
+ feed('💸 개발자에게서 +'+amt+' 🪙','w3');toast('💸 +'+amt+' 코인');sfx('coin');
+}
+function onAnnLive(pl){
+ if(!pl||!isDevRemote(pl.f))return;const t=cleanTxt2(pl.t);if(!t)return;
+ showAnn(t,'live:'+(pl.id||Date.now()));
+}
+const cleanTxt2=t=>String(t||'').replace(BAD,'***').slice(0,600);
+function devRefresh(){const sel=$('d_to'),cur=sel.value;sel.innerHTML='<option value="*">전체</option>';for(const [id,r] of net.remotes){const o=document.createElement('option');o.value=id;o.textContent=r.name;sel.appendChild(o)}if([...sel.options].some(o=>o.value===cur))sel.value=cur}
+function devSql(){const m=emailOf(DEV_ID);return "create table if not exists public.announcements(\n id bigint generated always as identity primary key,\n text text not null,\n created_at timestamptz default now());\nalter table public.announcements enable row level security;\ncreate policy \"read all\" on public.announcements for select using (true);\ncreate policy \"dev insert\" on public.announcements for insert to authenticated\n with check ((auth.jwt()->>'email')='"+m+"');"}
+async function postAnn(){
+ const t=cleanTxt2($('d_ann').value.trim());if(!t){setNetMsg('공지 내용을 입력하세요');return}
+ if(net.on&&net.send)net.send('n',{f:net.id,id:Date.now(),t});
+ if(net.mode==='supabase'){
+  try{const c=await sbClient();const r=await c.from('announcements').insert({text:t});if(r.error)throw r.error;setNetMsg('공지 등록 완료 (이후 처음 접속하는 플레이어에게도 표시)')}
+  catch(e){setNetMsg('실시간 공지만 전송됨. 저장 실패: '+(e.message||e)+' — 아래 SQL을 Supabase에서 실행했는지, 개발자 계정으로 로그인했는지 확인')}
+ }else{lsSet('ts_ann_local',JSON.stringify({id:Date.now(),t}));setNetMsg('데모 모드: 같은 브라우저 탭에만 전달됨')}
+}
+async function fetchAnn(){
+ try{
+  if(net.mode==='supabase'){const c=await sbClient();const r=await c.from('announcements').select('id,text').order('id',{ascending:false}).limit(1);
+   if(r.error||!r.data||!r.data.length)return;const a=r.data[0];const key='db:'+a.id;if(lsGet('ts_ann_db')!==key)showAnn(cleanTxt2(a.text),key)}
+ }catch(e){}
+}
+function devGive(){
+ if(!GAME.dev||!net.on){setNetMsg('개발자 로그인 + 온라인 접속 상태에서만 사용할 수 있습니다');return}
+ const amt=Math.max(1,Math.min(1000000,Math.floor(+$('d_amt').value||0)));const to=$('d_to').value;
+ net.send('g',{to,amt,f:net.id});const nm=to==='*'?'전체':(net.remotes.get(to)||{}).name||'?';feed('💸 '+nm+' 에게 '+amt+' 🪙 전송');
+}
+function bindDev(){
+ $('d_sql').value=devSql();$('d_to').addEventListener('mousedown',devRefresh);$('d_to').addEventListener('focus',devRefresh);
+ $('d_give').addEventListener('click',devGive);$('d_post').addEventListener('click',postAnn);
+ for(const id of ['d_amt','d_ann'])$(id).addEventListener('keydown',e=>e.stopPropagation());
+ $('ann_ok').addEventListener('click',annDone);
+ addEventListener('keydown',e=>{if(annOpen&&(e.key==='Enter'||e.key==='Escape')){e.preventDefault();annDone()}},true);
+ if(lsGet('ts_ann_b')!=='b:'+UPDATE_NOTE.id)showAnn(UPDATE_NOTE.text,'b:'+UPDATE_NOTE.id);
+}
+
+function bindColor(){bindHelp();bindDev();const el=$('n_col'),rs=$('n_colr');if(MYCOL)el.value=MYCOL;
  el.addEventListener('input',()=>{MYCOL=el.value;try{localStorage.setItem('ts_col',MYCOL)}catch(e){}if(net.on)sendState()});
  rs.addEventListener('click',()=>{MYCOL=null;try{localStorage.removeItem('ts_col')}catch(e){}el.value='#ffffff';if(net.on)sendState()})}
 function tintFor(id){let h=0;for(const c of id)h=(h*31+c.charCodeAt(0))%360;const s=.5,v=1,f=n=>{const k=(n+h/60)%6;return v-v*s*Math.max(0,Math.min(k,4-k,1))};return [f(5),f(3),f(1)]}
@@ -2039,6 +2193,8 @@ function dispatch(ev,pl){
  else if(ev==='c'){chatAdd(cleanTxt(pl.n||'?'),cleanTxt(pl.t||''))}
  else if(ev==='b')removeRemote(pl.i,true);
  else if(ev==='x')onNetX(pl);
+ else if(ev==='g')onGift(pl);
+ else if(ev==='n')onAnnLive(pl);
 }
 function onRemoteState(p){
  if(!p||p.i===net.id||!Array.isArray(p.p)||!Array.isArray(p.q))return;
@@ -2046,7 +2202,7 @@ function onRemoteState(p){
  if(!r){const tag=document.createElement('div');tag.className='tag';$('tags').appendChild(tag);
   r={name:'',p:p.p.slice(),rp:p.p.slice(),q:p.q.slice(),rq:p.q.slice(),v:[0,0,0],b:0,tint:tintFor(p.i),tag,last:0};net.remotes.set(p.i,r);chatAdd('',cleanTxt(p.n||'?')+' 님이 입장했습니다',true)}
  r.name=cleanTxt(p.n||'?').slice(0,16);r.tag.textContent=r.name;
- r.p=p.p;r.q=p.q;r.v=p.v||[0,0,0];r.b=p.b?1:0;r.n=p.e||0;if(typeof p.c==='string'&&/^#[0-9a-f]{6}$/i.test(p.c))r.tint=hexTint(p.c);else r.tint=tintFor(p.i);r.last=performance.now();
+ r.p=p.p;r.q=p.q;r.v=p.v||[0,0,0];r.b=p.b?1:0;r.pl=(Number.isInteger(p.pl)&&p.pl>=0&&p.pl<PLN.list.length)?p.pl:-1;r.n=p.e||0;if(typeof p.c==='string'&&/^#[0-9a-f]{6}$/i.test(p.c))r.tint=hexTint(p.c);else r.tint=tintFor(p.i);r.last=performance.now();
 }
 function removeRemote(id,say){const r=net.remotes.get(id);if(!r)return;r.tag.remove();net.remotes.delete(id);if(say)chatAdd('',r.name+' 님이 나갔습니다',true)}
 function loadScript(src){return new Promise((res,rej)=>{if(window.supabase)return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Supabase 라이브러리를 불러오지 못했습니다 (인터넷 필요)'));document.head.appendChild(s)})}
@@ -2065,7 +2221,7 @@ async function authDo(kind){
   const r=kind==='up'?await c.auth.signUp({email,password:pw,options:{data:{name:id}}}):await c.auth.signInWithPassword({email,password:pw});
   if(r.error)throw r.error;
   if(!r.data.session){setNetMsg('가입 완료. 바로 로그인되지 않으면 Supabase에서 Confirm email을 꺼 주세요');return}
-  net.user=id;if(id===DEV_ID){GAME.dev=true;feed('🛠 개발자 계정 로그인 — 코인 무한')}else GAME.dev=false;$('n_name').value=id;$('n_name').readOnly=true;setNetMsg('로그인됨: '+id);lsSet('cs_id',id);
+  net.user=id;if(id===DEV_ID){GAME.dev=true;$('devp').style.display='';feed('🛠 개발자 계정 로그인 — 코인 무한')}else{GAME.dev=false;$('devp').style.display='none'}$('n_name').value=id;$('n_name').readOnly=true;setNetMsg('로그인됨: '+id);lsSet('cs_id',id);
  }catch(e){setNetMsg('오류: '+(e.message||e))}
 }
 function connectLocal(room){const bc=new BroadcastChannel('carsim:'+room);bc.onmessage=e=>{if(e.data)dispatch(e.data.ev,e.data.pl)};net.send=(ev,pl)=>bc.postMessage({ev,pl});net.close=()=>bc.close();net.mode='local'}
@@ -2073,7 +2229,7 @@ async function connectSupabase(room){
  const c=await sbClient();let cur=null,dead=false,retry=0,rt=0;
  const open=()=>new Promise((res,rej)=>{
   const ch=c.channel('carsim:'+room,{config:{broadcast:{self:false}}});cur=ch;
-  for(const ev of ['s','c','b','x'])ch.on('broadcast',{event:ev},m=>{netRx=performance.now();dispatch(ev,m.payload)});
+  for(const ev of ['s','c','b','x','g','n'])ch.on('broadcast',{event:ev},m=>{netRx=performance.now();dispatch(ev,m.payload)});
   let done=false;const to=setTimeout(()=>{if(!done){done=true;rej(new Error('연결 시간 초과'))}},10000);
   ch.subscribe(st=>{
    if(st==='SUBSCRIBED'){retry=0;if(!done){done=true;clearTimeout(to);res()}else if(net.on)setNetMsg('재연결됨')}
@@ -2094,7 +2250,8 @@ async function connectSupabase(room){
 async function netConnect(){
  if(net.on){netDisconnect();return}
  const room=($('n_room').value.trim()||'city').slice(0,30);
- net.name=cleanTxt($('n_name').value.trim()||('손님'+Math.floor(Math.random()*900+100))).slice(0,12);$('n_name').value=net.name;
+ net.name=cleanTxt($('n_name').value.trim()||('손님'+Math.floor(Math.random()*900+100))).slice(0,12);
+ if(net.name===DEV_ID&&net.user!==DEV_ID)net.name='손님'+Math.floor(Math.random()*900+100);$('n_name').value=net.name;
  lsSet('cs_name',net.name);lsSet('cs_room',room);lsSet('cs_url',$('n_url').value.trim());lsSet('cs_key',$('n_key').value.trim());
  try{
   setNetMsg('접속 중…');
@@ -2102,6 +2259,7 @@ async function netConnect(){
   net.on=true;$('n_conn').textContent='접속 끊기';$('netsum').textContent='🌐 온라인 · '+room;
   setNetMsg(net.mode==='local'?'데모 모드: Supabase 설정이 없어 같은 브라우저의 다른 탭과만 연결됩니다':'접속됨 (Supabase)');
   chatAdd('',net.name+' 님으로 방 "'+room+'"에 입장',true);
+  fetchAnn();
  }catch(e){setNetMsg('오류: '+(e.message||e))}
 }
 function netDisconnect(){
@@ -2111,7 +2269,7 @@ function netDisconnect(){
  $('n_conn').textContent='접속';$('netsum').textContent='🌐 온라인 (오프라인)';setNetMsg('접속 종료');
 }
 let netPrev=performance.now();
-function sendState(){if(!net.on||!net.send)return;net.send('s',{i:net.id,n:net.name,p:car.pos.map(v=>+v.toFixed(2)),q:car.q.map(v=>+v.toFixed(4)),v:car.v.map(v=>+v.toFixed(2)),b:car.boosting?1:0,e:+ND.ext.toFixed(2),c:MYCOL||0})}
+function sendState(){if(!net.on||!net.send)return;net.send('s',{i:net.id,n:net.name,p:(PLN.act?PLN.act.pos:car.pos).map(v=>+v.toFixed(2)),q:(PLN.act?PLN.act.q:car.q).map(v=>+v.toFixed(4)),v:(PLN.act?PLN.act.v:car.v).map(v=>+v.toFixed(2)),b:PLN.act?0:(car.boosting?1:0),pl:PLN.act?PLN.list.indexOf(PLN.act):-1,e:+ND.ext.toFixed(2),c:MYCOL||0})}
 setInterval(()=>{if(document.hidden)sendState()},1000);   // 탭이 백그라운드여도 위치 계속 전송
 function netTick(dtf){
  const now=performance.now();
@@ -2155,7 +2313,7 @@ function bindNetUI(){
 }
 
 /* ============================================================ boot */
-window.__sim={LOOPS,PLN,exitPlane,boardPlane,planeStep,teleport,net,netConnect,loadMapFile,get MAPMODE(){return MAPMODE},setPose:(p,q)=>{car.pos=p;car.q=q;car.R=quatToMat(q);car.v=[0,0,0];car.w=[0,0,0]},car,keys,CFG,step:(n=1)=>{for(let i=0;i<n;i++)physStep()},get nitro(){return nitro},set nitro(v){nitro=v},ramps,boxes,resetCar,cam,surfaceAt,
+window.__sim={LOOPS,PLN,JUMP,exitPlane,boardPlane,planeStep,teleport,net,netConnect,loadMapFile,get MAPMODE(){return MAPMODE},setPose:(p,q)=>{car.pos=p;car.q=q;car.R=quatToMat(q);car.v=[0,0,0];car.w=[0,0,0]},car,keys,CFG,step:(n=1)=>{for(let i=0;i<n;i++)physStep()},get nitro(){return nitro},set nitro(v){nitro=v},ramps,boxes,resetCar,cam,surfaceAt,
  GAME,MIS,fireMissile,buyMissiles,POL,NEEDLES,ND,brk,bon,ST,addCoins,startWanted,arrest,fireNeedle,detonateMine,onNetX,spawnPolice,
  run:(sec)=>{const n=Math.round(sec/dt);for(let i=0;i<n;i++){physStep();if(i%4===3){gameTick(dt*4);updateParticles(dt*4)}}},
  frame1:()=>{updateCamera(.016);render()},get sinceUse(){return sinceUse}};
