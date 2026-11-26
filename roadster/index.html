@@ -152,8 +152,11 @@ body.touch #toast{top:30%;font-size:18px}
   </details>
   <details id="devp" style="display:none"><summary>🛠 개발자 도구</summary>
    <label>코인 보내기 대상<select id="d_to"><option value="*">전체</option></select></label>
-   <label>금액<input id="d_amt" type="number" min="1" max="1000000" value="1000"></label>
-   <button id="d_give" style="width:100%">💸 코인 보내기</button>
+   <label>금액 (음수 = 회수)<input id="d_amt" type="number" min="-1000000" max="1000000" value="1000"></label>
+   <button id="d_give" style="width:100%">💸 코인 보내기 / 회수</button>
+   <button id="d_chk" style="width:100%">👁 플레이어 돈 확인</button>
+   <div id="d_list" style="font-size:12px;line-height:1.5;white-space:pre-wrap"></div>
+   <label style="display:flex;gap:8px;align-items:center"><input id="d_pvp" type="checkbox"> PvP 전체 끄기 (모든 플레이어 공격 무효)</label>
    <label>공지문 (처음 접속한 플레이어에게 1회 표시)<textarea id="d_ann" rows="4" maxlength="600" style="width:100%;box-sizing:border-box" placeholder="업데이트 내용 / 공지"></textarea></label>
    <button id="d_post" style="width:100%">📢 공지 등록</button>
    <details><summary>공지 저장용 Supabase SQL</summary><textarea id="d_sql" readonly rows="7" style="width:100%;box-sizing:border-box;font-size:11px"></textarea></details>
@@ -535,8 +538,12 @@ function addPlane(x,z,yaw,col,type){type=type||'cessna';const T=PT[type];
  const pl={type,T,sx:x,sz:z,syaw:yaw,pos:[x,T.G,z],q,R:Rm,v:[0,0,0],wl:[0,0,0],thr:0,idle:0,dead:0,spin:0,col,pad:[x+pd[0],z+pd[2]],ammo:6,cd:0,ar:0};PLN.list.push(pl)}
 function planeReset(pl){const T=pl.T;pl.pos=[pl.sx,T.G,pl.sz];pl.q=quatFromAxisAngle([0,1,0],pl.syaw);pl.R=quatToMat(pl.q);pl.v=[0,0,0];pl.wl=[0,0,0];pl.thr=0;pl.idle=0;pl.dead=0;pl.ammo=6;pl.cd=0}
 function teleport(x,z,yawDeg,name){if(PLN.act)exitPlane();const gh=surfaceAt(x,50,z,50,50)[0];car.pos=[x,gh+.7,z];car.q=quatFromAxisAngle([0,1,0],yawDeg*D2R);car.R=quatToMat(car.q);car.v=[0,0,0];car.w=[0,0,0];car.wb=0;car.climbT=0;cam.init=false;PLN.armed=false;toast(name)}
-function boardPlane(pl){PLN.act=pl;pl.idle=0;car.v=[0,0,0];car.w=[0,0,0];cam.pp=null;
- toast(pl.T.tk?('✈ '+pl.T.name+' 탑승! Shift 추력↑ · '+pl.T.tk+'km/h 이상에서 S 로 이륙 · W/S 피치 · A/D 롤'+(pl.T.ft?' · T 미사일':'')):'✈ 탑승! Shift 추력↑ · W/S 피치 · A/D 롤 · R 내리기');sfx('coin')}
+function boardPlane(pl){
+ if(pl.T.bomb&&!GAME.dev){
+  if(GAME.coins<BOMBER_FEE){feed('☢ B-29 탑승료 '+BOMBER_FEE.toLocaleString()+'🪙 필요 (보유 '+GAME.coins.toLocaleString()+')','bad');return false}
+  GAME.coins-=BOMBER_FEE;saveGame();feed('☢ B-29 탑승료  -'+BOMBER_FEE.toLocaleString()+' 🪙','bad')}
+ PLN.act=pl;pl.idle=0;car.v=[0,0,0];car.w=[0,0,0];cam.pp=null;
+ toast(pl.T.tk?('✈ '+pl.T.name+' 탑승! Shift 추력↑ · '+pl.T.tk+'km/h 이상에서 S 로 이륙 · W/S 피치 · A/D 롤'+(pl.T.ft?' · T 미사일':'')):'✈ 탑승! Shift 추력↑ · W/S 피치 · A/D 롤 · R 내리기');sfx('coin');return true}
 function exitPlane(){
  const pl=PLN.act;if(!pl)return;PLN.act=null;PLN.armed=false;pl.idle=0;cam.init=false;
  const R=pl.R,gh=surfaceAt(pl.pos[0],pl.pos[1],pl.pos[2],2,2)[0],onG=pl.pos[1]<gh+pl.T.G+1;
@@ -592,7 +599,7 @@ function planeTick(dt){
   if(pl.dead>0){pl.dead-=dt;if(pl.dead<=0)planeReset(pl);continue}
   if(T.ft&&pl.ammo<6&&pl.pos[1]<T.G+1){pl.ar+=dt;if(pl.ar>5){pl.ar=0;pl.ammo++}}
   if(PLN.act===pl){pl.spin+=(8+pl.thr*80)*dt;continue}
-  if(!PLN.act&&PLN.armed&&!occ.has(PLN.list.indexOf(pl))){const dx=car.pos[0]-pl.pad[0],dz=car.pos[2]-pl.pad[1];if(dx*dx+dz*dz<T.padR2&&car.pos[1]<4&&len(car.v)<16){boardPlane(pl);continue}}
+  if(!PLN.act&&PLN.armed&&!occ.has(PLN.list.indexOf(pl))){const dx=car.pos[0]-pl.pad[0],dz=car.pos[2]-pl.pad[1];if(dx*dx+dz*dz<T.padR2&&car.pos[1]<4&&len(car.v)<16){if(!boardPlane(pl))PLN.armed=false;else continue}}
   if(pl.pos[1]>T.G+.1){pl.v=add(pl.v,[0,-9.8*dt,0]);pl.pos=add(pl.pos,mul(pl.v,dt));const g=surfaceAt(pl.pos[0],pl.pos[1],pl.pos[2],2,2)[0];if(pl.pos[1]<g+T.G){pl.pos[1]=g+T.G;pl.v=[0,0,0]}}
   else pl.v=mul(pl.v,Math.exp(-dt*1.2));
   pl.pos=add(pl.pos,mul([pl.v[0],0,pl.v[2]],dt));
@@ -681,7 +688,7 @@ function drawPlanes(s,t){
   dbox(s,at(0,0,5.75),[a[0],b[0],az[0],a[1],b[1],az[1],a[2],b[2],az[2]],[.1,1.9,.06],[.12,.12,.12],3);
   dbox(s,at(0,0,5.7),R,[.2,.2,.25],rd,3);
  }
- for(const pl of PLN.list){ if(PLN.act!==pl&&!pl.remote&&pl.dead<=0&&!occ.has(PLN.list.indexOf(pl))){const pu=.6+.4*Math.sin(t*4);const g=surfaceAt(pl.pad[0],50,pl.pad[1],50,50)[0];
+ for(const pl of PLN.list){ if(PLN.act!==pl&&!pl.remote&&pl.dead<=0&&(!pl.T.bomb||Math.hypot(pl.pad[0]-car.pos[0],pl.pad[1]-car.pos[2])<120)&&!occ.has(PLN.list.indexOf(pl))){const pu=.6+.4*Math.sin(t*4);const g=surfaceAt(pl.pad[0],50,pl.pad[1],50,50)[0];
    const rr=pl.T.rad>20?3.4:2.4;dbox(s,[pl.pad[0],g+.12,pl.pad[1]],I3,[rr,.07,rr],[0,.9*pu,1*pu],7);dbox(s,[pl.pad[0],g+(pl.T.rad>20?9:4),pl.pad[1]],I3,[.12,pl.T.rad>20?9:4,.12],[0,.8,1],7)}}
 }
 
@@ -703,7 +710,7 @@ function fireFM(){
 }
 function fmTargets(m){
  const L=[];
- for(const [id,r] of net.remotes){if(id===m.own)continue;L.push({vid:id,rad:r.pl>=0?PLN.list[r.pl].T.rad+3:6,get p(){return add(r.rp,[0,.8,0])}})}
+ if(pvpOn())for(const [id,r] of net.remotes){if(id===m.own)continue;L.push({vid:id,rad:r.pl>=0?PLN.list[r.pl].T.rad+3:6,get p(){return add(r.rp,[0,.8,0])}})}
  if(m.own!==net.id){L.push({me:1,rad:PLN.act?PLN.act.T.rad+3:6,get p(){return selfPos()}})}
  if(m.own===net.id&&!MAPMODE)for(const pc of POL)if(!pc.parked&&!pc.retire)L.push({pc,rad:3.2,get p(){return pcCenter(pc)}});
  return L}
@@ -711,7 +718,7 @@ function fmBoom(m,send){
  const i=FM.indexOf(m);if(i<0)return;FM.splice(i,1);
  const c=m.p;explode(c,true);cam.shake=Math.max(cam.shake,.4);
  if(m.own===net.id)for(const pc of POL.slice()){if(Math.hypot(pc.x-c[0],pc.z-c[2])<10&&Math.abs(pc.y-c[1])<9)destroyPolice(pc,90)}
- if(m.own!==net.id&&!GAME.dev){
+ if(m.own!==net.id&&!GAME.dev&&pvpOn()){
   const sp=selfPos(),dd=Math.hypot(sp[0]-c[0],sp[1]-c[1],sp[2]-c[2]);
   if(PLN.act){if(dd<PLN.act.T.rad+5){feed('💥 전투기 미사일에 격추당했습니다!','bad');planeCrash(PLN.act)}}
   else if(dd<10){const k=1-dd/14;car.v=add(car.v,[(Math.random()-.5)*50*k,62*k+10,(Math.random()-.5)*50*k]);car.w=add(car.w,[(Math.random()-.5)*26,(Math.random()-.5)*20,(Math.random()-.5)*26]);car.hitT=.6;feed('💥 전투기 미사일 피격! 추락!','bad')}
@@ -783,6 +790,7 @@ function nukeBlast(c,b){
  for(let i=0;i<10;i++)explode(add(c,[(Math.random()-.5)*90,Math.random()*30,(Math.random()-.5)*90]),true);
  NFX.push({p:[c[0],c[1],c[2]],t:0});
  for(const pc of POL.slice())if(Math.hypot(pc.x-c[0],pc.z-c[2])<NUKE_R*1.4)destroyPolice(pc,90);
+ if(b&&b.own!==net.id&&!pvpOn())return;   // PvP 꺼짐: 남의 핵폭탄 피해/보상 없음(연출만)
  const hit=dd<NUKE_R;
  if(hit){
   if(PLN.act)planeCrash(PLN.act);
@@ -1007,12 +1015,15 @@ function buildExtras(){
   AIRLBL.push([T0-4,31,0,'✈ 인천국제공항 INCHEON INTERNATIONAL AIRPORT',900,1],[T0+40,30,-120,'제1여객터미널',500],[T0+40,30,120,'T1 출발 DEPARTURES',500],
    [AX-159,110,244,'관제탑 CONTROL TOWER',700],[AX-190,36,-300,'대한항공 격납고 KOREAN AIR HANGAR',500],[AX-188,18,314,'화물터미널 CARGO',450],
    [AX-190,12,370,'🇰🇷 공군 전투기 계류장',400],[AX-370,26,0,'P1 주차빌딩',400],[AX-100,24,-140,'GATE 101',350],[AX-100,24,-40,'GATE 102',350],[AX-100,24,130,'GATE 103',350],
-   [AX,6,-640,'RWY 15L / 33R',450],[AX+210,6,-640,'RWY 15R / 33L',450],[AX-70,8,-250,'경비행기 GA 계류장',300],[AX-62,16,-362,'☢ B-29 핵폭격기 (T: 미사일50+독침100)',350]);
+   [AX,6,-640,'RWY 15L / 33R',450],[AX+210,6,-640,'RWY 15R / 33L',450],[AX-70,8,-250,'경비행기 GA 계류장',300]);
  }
  const pcols=[[.8,.1,.1],[.1,.35,.8],[.95,.6,.05]];
  [-140,-40,130].forEach(z=>addPlane(AX-85,z,Math.PI,null,'kal'));
  [320,370,420].forEach(z=>addPlane(AX-60,z,0,null,'jet'));
- addPlane(AX-55,-290,0,pcols[0]);addPlane(AX-55,-325,0,pcols[1]);addPlane(AX-62,-362,0,null,'bomber');
+ addPlane(AX-55,-290,0,pcols[0]);addPlane(AX-55,-325,0,pcols[1]);
+ {const hx=AX+520,hz=900,cm=[.2,.25,.19];
+  solid(hx+18,0,hz-26,hx+20,16,hz+26,cm,3);solid(hx-30,0,hz-26,hx+20,16,hz-24,cm,3);solid(hx-30,0,hz+24,hx+20,16,hz+26,cm,3);solid(hx-30,14,hz-26,hx+20,16,hz+26,cm,3);
+  addPlane(hx-6,hz,-Math.PI/2,null,'bomber');}
 
  // ---------------- 야구장 (서쪽 x≈-1350)
  const SX=-1350,SZ=0,FH=80;
@@ -2163,7 +2174,7 @@ function needleTick(dt){
  const R=car.R,fw=mV(R,[0,0,1]);
  const samples=[1.9+ND.ext*3.4,1.9+ND.ext*2.9,1.9+ND.ext*2.3].map(z=>add(car.pos,mV(R,[0,-.15,z])));
  const targets=[];
- for(const [id,r] of net.remotes)targets.push({vid:id,p:r.rp,R:quatToMat(r.rq),h:[1.0,.8,2.5]});
+ if(pvpOn())for(const [id,r] of net.remotes)targets.push({vid:id,p:r.rp,R:quatToMat(r.rq),h:[1.0,.8,2.5]});
  if(!MAPMODE)for(const pc of POL)targets.push({pc,p:pcCenter(pc),R:[pc.B.x[0],pc.B.up[0],pc.B.f[0],pc.B.x[1],pc.B.up[1],pc.B.f[1],pc.B.x[2],pc.B.up[2],pc.B.f[2]],h:[1.05,.9,2.5]});
  for(const tg of targets){for(const s of samples){
   const l=mTV(tg.R,sub(s,tg.p));
@@ -2187,11 +2198,12 @@ function detonateMine(){
 }
 function onNetX(pl){
  if(pl.k==='stab'){
+  if(!pvpOn())return;
   if(NEEDLES.some(n=>n.id===pl.id))return;
   NEEDLES.push({id:pl.id,owner:pl.a,vid:pl.v,off:pl.o,dl:pl.d,born:performance.now()});
   if(pl.v===net.id){feed('💉 독침에 찔렸습니다!','bad');sfx('stab')}
  }else if(pl.k==='mhit'){
-  if(pl.v!==net.id||GAME.dev)return;if(PLN.act){feed('🚀 미사일에 격추!','bad');planeCrash(PLN.act);return}const pw=nz(pl.pw,1,20,1);car.v=add(car.v,[(Math.random()-.5)*48*pw,45*pw,(Math.random()-.5)*48*pw]);car.w=add(car.w,[(Math.random()-.5)*24*pw,(Math.random()-.5)*18*pw,(Math.random()-.5)*24*pw]);feed('🚀 미사일 피격!','bad');explode(car.pos,true);
+  if(pl.v!==net.id||GAME.dev||!pvpOn())return;if(PLN.act){feed('🚀 미사일에 격추!','bad');planeCrash(PLN.act);return}const pw=nz(pl.pw,1,20,1);car.v=add(car.v,[(Math.random()-.5)*48*pw,45*pw,(Math.random()-.5)*48*pw]);car.w=add(car.w,[(Math.random()-.5)*24*pw,(Math.random()-.5)*18*pw,(Math.random()-.5)*24*pw]);feed('🚀 미사일 피격!','bad');explode(car.pos,true);
  }else if(pl.k==='fm'){
   if(FM.some(m=>m.id===pl.id)||FM.length>80)return;
   const okv=a=>Array.isArray(a)&&a.length===3&&a.every(v=>isFinite(+v));if(!okv(pl.p)||!okv(pl.v)||!okv(pl.d)||typeof pl.id!=='string')return;
@@ -2204,11 +2216,11 @@ function onNetX(pl){
  }else if(pl.k==='fmend'){
   const m=FM.find(q=>q.id===pl.id);if(!m)return;if(Array.isArray(pl.p)&&pl.p.length===3&&pl.p.every(v=>isFinite(+v)))m.p=pl.p.map(Number);fmBoom(m,false);
  }else if(pl.k==='nuke'){
-  if(!Array.isArray(pl.p)||pl.p.length!==3||pl.p.some(v=>!isFinite(+v)))return;applyNuke(pl.p.map(Number),pl.pw);
+  if(!pvpOn())return;if(!Array.isArray(pl.p)||pl.p.length!==3||pl.p.some(v=>!isFinite(+v)))return;applyNuke(pl.p.map(Number),pl.pw);
  }else if(pl.k==='boom'){
   const i=NEEDLES.findIndex(n=>n.id===pl.id);if(i<0)return;const n=NEEDLES[i];const w=entryWorld(n);NEEDLES.splice(i,1);if(!w)return;
   explode(w.p,false);
-  if(n.vid===net.id){const pw=nz(pl.pw,1,20,1);car.v=add(car.v,[(Math.random()-.5)*16*pw,15*pw,(Math.random()-.5)*16*pw]);car.w=add(car.w,[(Math.random()-.5)*8*pw,(Math.random()-.5)*6*pw,(Math.random()-.5)*8*pw]);feed('💥 독침 폭발!','bad')}
+  if(n.vid===net.id&&pvpOn()){const pw=nz(pl.pw,1,20,1);car.v=add(car.v,[(Math.random()-.5)*16*pw,15*pw,(Math.random()-.5)*16*pw]);car.w=add(car.w,[(Math.random()-.5)*8*pw,(Math.random()-.5)*6*pw,(Math.random()-.5)*8*pw]);feed('💥 독침 폭발!','bad')}
  }
 }
 function drawNeedleShaft(s,p,d,len2,t){
@@ -2225,6 +2237,7 @@ function drawNeedles(s,t){
 
 /* ---------- homing missile ---------- */
 const MIS=[];
+let PVP_OFF_UNTIL=0;const pvpOn=()=>performance.now()>PVP_OFF_UNTIL;const BOMBER_FEE=100000;
 const CHT={ghost:false,misPow:1,ndPow:1,burst:1,size:1,onHit:null};
 const nz=(v,lo,hi,d)=>{v=+v;return isFinite(v)?Math.max(lo,Math.min(hi,v)):d};
 function applyNuke(p,pw){
@@ -2248,13 +2261,13 @@ function fireMissile(){
   MIS.push({p:add(car.pos,add(mul(f,2.6),[0,.4,0])),d:dk,sp:Math.max(30,dot(car.v,f)+22),t:0,tg:null,pw:nz(CHT.misPow,.1,20,1),gh:!!CHT.ghost})}
  sfx('push');sfx('hiss');
 }
-function misTargets(){const L=[];for(const [id,r] of net.remotes)L.push({vid:id,get p(){return add(r.rp,[0,.8,0])}});
+function misTargets(){const L=[];if(pvpOn())for(const [id,r] of net.remotes)L.push({vid:id,get p(){return add(r.rp,[0,.8,0])}});
  if(!MAPMODE)for(const pc of POL)if(!pc.parked&&!pc.retire)L.push({pc,get p(){return pcCenter(pc)}});return L}
 function misBoom(m){
  const c=m.p;const pw=m.pw||1,rs=Math.sqrt(pw);explode(c,true);cam.shake=Math.max(cam.shake,.4);
  if(pw>1.5)for(let i=0;i<Math.min(6,Math.round(pw));i++)explode(add(c,[(Math.random()-.5)*8*rs,Math.random()*4,(Math.random()-.5)*8*rs]),true);
  for(const pc of POL.slice()){if(Math.hypot(pc.x-c[0],pc.z-c[2])<9*rs&&Math.abs(pc.y-c[1])<8*rs)destroyPolice(pc,90)}
- for(const [id,r] of net.remotes){if(Math.hypot(r.rp[0]-c[0],r.rp[1]-c[1],r.rp[2]-c[2])<9*rs&&net.on){net.send('x',{k:'mhit',a:net.id,v:id,pw});if(CHT.onHit)try{CHT.onHit('mis',id)}catch(e){}}}
+ if(pvpOn())for(const [id,r] of net.remotes){if(Math.hypot(r.rp[0]-c[0],r.rp[1]-c[1],r.rp[2]-c[2])<9*rs&&net.on){net.send('x',{k:'mhit',a:net.id,v:id,pw});if(CHT.onHit)try{CHT.onHit('mis',id)}catch(e){}}}
  const dd=Math.hypot(car.pos[0]-c[0],car.pos[1]-c[1],car.pos[2]-c[2]);
  if(dd<7*rs&&!GAME.dev){const k=3*(1-dd/(7*rs))*pw;car.v=add(car.v,[(Math.random()-.5)*32*k,30*k,(Math.random()-.5)*32*k]);car.w=add(car.w,[(Math.random()-.5)*16*k,(Math.random()-.5)*12*k,(Math.random()-.5)*16*k])}
 }
@@ -2478,7 +2491,7 @@ function toggleHelp(){const h=$('help'),o=$('helpx');const hide=h.style.display!
 function bindHelp(){$('helpc').addEventListener('click',toggleHelp);$('helpx').addEventListener('click',toggleHelp);let v='1';try{v=localStorage.getItem('ts_help')||'1'}catch(e){}if(v==='0')toggleHelp()}
 
 /* ---------- 개발자 기능: 코인 보내기 · 공지문 ---------- */
-const UPDATE_NOTE={id:'2026-11-25',text:'업데이트 내용\n• 인천국제공항 풍으로 공항 개편 (터미널·탑승교·관제탑·격납고·두 번째 활주로)\n• 대한항공 747 추가 (실제 크기, 280km/h 이상에서 이륙)\n• 전투기 추가: T 로 추적 미사일 발사 (1발에 격추, 자기 미사일엔 안 맞음)\n• 벽 자동 부착 · 서스펜션 삭제 · 착지 시 바닥에 붙음\n• ☢ B-29 핵폭격기 추가: T 로 핵 투하 (미사일 50 + 독침 100 소모, 폭발 10초 전 낙하산 해제, 벗어나면 +200🪙 / 휘말리면 -1000🪙)\n• 전투기 미사일은 이제 보유 미사일을 소모합니다\n• 1번 키: 공항 이동'};
+const UPDATE_NOTE={id:'2026-11-26',text:'업데이트 내용\n• 핵폭격기를 추가하고 분탕질 한것에대해 죄송합니다'};
 const annQ=[];let annOpen=false;
 function showAnn(text,key){annQ.push([text,key]);if(!annOpen)nextAnn()}
 function nextAnn(){const it=annQ.shift();if(!it){annOpen=false;$('ann').style.display='none';return}annOpen=true;$('ann_t').textContent=it[0];$('ann').style.display='flex';$('ann').dataset.key=it[1]}
@@ -2486,15 +2499,28 @@ function annDone(){const k=$('ann').dataset.key;if(k)lsSet('ts_ann_'+k.split(':'
 function isDevRemote(id){const r=net.remotes.get(id);return !!r&&r.name===DEV_ID}
 function onGift(pl){
  if(!pl||(pl.to!=='*'&&pl.to!==net.id)||!isDevRemote(pl.f))return;
- const amt=Math.max(0,Math.min(1000000,Math.floor(+pl.amt||0)));if(!amt)return;
- if(!GAME.dev){GAME.coins+=amt;saveGame()}
- feed('💸 개발자에게서 +'+amt+' 🪙','w3');toast('💸 +'+amt+' 코인');sfx('coin');
+ const amt=Math.max(-1000000,Math.min(1000000,Math.floor(+pl.amt||0)));if(!amt)return;
+ if(!GAME.dev){GAME.coins=Math.max(0,GAME.coins+amt);saveGame()}
+ if(amt>0){feed('💸 개발자에게서 +'+amt+' 🪙','w3');toast('💸 +'+amt+' 코인');sfx('coin')}else{feed('💸 개발자가 '+(-amt)+' 🪙 회수','bad');toast('💸 '+amt+' 코인')}
 }
 function onAnnLive(pl){
  if(!pl||!isDevRemote(pl.f))return;const t=cleanTxt2(pl.t);if(!t)return;
  showAnn(t,'live:'+(pl.id||Date.now()));
 }
 const cleanTxt2=t=>String(t||'').replace(BAD,'***').slice(0,600);
+const DEVCO=new Map();
+function onCoinQuery(pl){if(!pl||!isDevRemote(pl.f)||!net.on||!net.send)return;net.send('r',{to:pl.f,i:net.id,n:net.name||'?',c:GAME.coins|0})}
+function renderCoinList(){const rows=[...DEVCO.values()].sort((a,b)=>b.c-a.c).map(r=>r.n+'  '+r.c.toLocaleString()+' 🪙');$('d_list').textContent=rows.length?rows.join('\n'):'응답 없음 (접속한 다른 플레이어가 없거나 응답 대기 중)'}
+function onCoinReply(pl){if(!GAME.dev||!pl||pl.to!==net.id||typeof pl.i!=='string')return;DEVCO.set(pl.i,{n:cleanTxt2(pl.n).slice(0,20),c:Math.max(0,Math.floor(+pl.c||0))});renderCoinList()}
+function devCheck(){if(!GAME.dev||!net.on){setNetMsg('개발자 로그인 + 온라인 접속 상태에서만 사용할 수 있습니다');return}DEVCO.clear();$('d_list').textContent='조회 중...';net.send('q',{f:net.id});setTimeout(renderCoinList,1500)}
+function onPvp(pl){if(!pl||!isDevRemote(pl.f))return;const was=pvpOn();if(pl.off){PVP_OFF_UNTIL=performance.now()+25000}else PVP_OFF_UNTIL=0;
+ if(was!==pvpOn()){feed(pvpOn()?'⚔ PvP 켜짐 — 플레이어 공격 가능':'🕊 PvP 꺼짐 — 플레이어 공격 무효','w3');toast(pvpOn()?'⚔ PvP 켜짐':'🕊 PvP 꺼짐')}}
+let pvpTimer=0;
+function devPvp(){const off=$('d_pvp').checked;try{localStorage.setItem('ts_pvpoff',off?'1':'')}catch(e){}
+ PVP_OFF_UNTIL=off?Infinity:0;clearInterval(pvpTimer);
+ if(net.on&&net.send)net.send('p',{f:net.id,off});
+ if(off)pvpTimer=setInterval(()=>{if(net.on&&net.send)net.send('p',{f:net.id,off:true})},8000);
+ feed(off?'🕊 PvP 전체 끄기 (내가 접속해 있는 동안 유지)':'⚔ PvP 전체 켜기')}
 function devRefresh(){const sel=$('d_to'),cur=sel.value;sel.innerHTML='<option value="*">전체</option>';for(const [id,r] of net.remotes){const o=document.createElement('option');o.value=id;o.textContent=r.name;sel.appendChild(o)}if([...sel.options].some(o=>o.value===cur))sel.value=cur}
 function devSql(){const m=emailOf(DEV_ID);return "create table if not exists public.announcements(\n id bigint generated always as identity primary key,\n text text not null,\n created_at timestamptz default now());\nalter table public.announcements enable row level security;\ncreate policy \"read all\" on public.announcements for select using (true);\ncreate policy \"dev insert\" on public.announcements for insert to authenticated\n with check ((auth.jwt()->>'email')='"+m+"');"}
 async function postAnn(){
@@ -2513,12 +2539,12 @@ async function fetchAnn(){
 }
 function devGive(){
  if(!GAME.dev||!net.on){setNetMsg('개발자 로그인 + 온라인 접속 상태에서만 사용할 수 있습니다');return}
- const amt=Math.max(1,Math.min(1000000,Math.floor(+$('d_amt').value||0)));const to=$('d_to').value;
- net.send('g',{to,amt,f:net.id});const nm=to==='*'?'전체':(net.remotes.get(to)||{}).name||'?';feed('💸 '+nm+' 에게 '+amt+' 🪙 전송');
+ const amt=Math.max(-1000000,Math.min(1000000,Math.floor(+$('d_amt').value||0)));const to=$('d_to').value;if(!amt){setNetMsg('금액을 입력하세요 (음수 = 회수)');return}
+ net.send('g',{to,amt,f:net.id});const nm=to==='*'?'전체':(net.remotes.get(to)||{}).name||'?';feed('💸 '+nm+(amt>0?' 에게 '+amt+' 🪙 전송':' 에게서 '+(-amt)+' 🪙 회수'));
 }
 function bindDev(){
  $('d_sql').value=devSql();$('d_to').addEventListener('mousedown',devRefresh);$('d_to').addEventListener('focus',devRefresh);
- $('d_give').addEventListener('click',devGive);$('d_post').addEventListener('click',postAnn);
+ $('d_give').addEventListener('click',devGive);$('d_chk').addEventListener('click',devCheck);$('d_pvp').addEventListener('change',devPvp);try{if(localStorage.getItem('ts_pvpoff')==='1'){$('d_pvp').checked=false}}catch(e){}$('d_post').addEventListener('click',postAnn);
  for(const id of ['d_amt','d_ann'])$(id).addEventListener('keydown',e=>e.stopPropagation());
  $('ann_ok').addEventListener('click',annDone);
  addEventListener('keydown',e=>{if(annOpen&&(e.key==='Enter'||e.key==='Escape')){e.preventDefault();annDone()}},true);
@@ -2537,6 +2563,9 @@ function dispatch(ev,pl){
  else if(ev==='x')onNetX(pl);
  else if(ev==='g')onGift(pl);
  else if(ev==='n')onAnnLive(pl);
+ else if(ev==='q')onCoinQuery(pl);
+ else if(ev==='r')onCoinReply(pl);
+ else if(ev==='p')onPvp(pl);
 }
 function onRemoteState(p){
  if(!p||p.i===net.id||!Array.isArray(p.p)||!Array.isArray(p.q))return;
@@ -2571,7 +2600,7 @@ async function connectSupabase(room){
  const c=await sbClient();let cur=null,dead=false,retry=0,rt=0;
  const open=()=>new Promise((res,rej)=>{
   const ch=c.channel('carsim:'+room,{config:{broadcast:{self:false}}});cur=ch;
-  for(const ev of ['s','c','b','x','g','n'])ch.on('broadcast',{event:ev},m=>{netRx=performance.now();dispatch(ev,m.payload)});
+  for(const ev of ['s','c','b','x','g','n','q','r','p'])ch.on('broadcast',{event:ev},m=>{netRx=performance.now();dispatch(ev,m.payload)});
   let done=false;const to=setTimeout(()=>{if(!done){done=true;rej(new Error('연결 시간 초과'))}},10000);
   ch.subscribe(st=>{
    if(st==='SUBSCRIBED'){retry=0;if(!done){done=true;clearTimeout(to);res()}else if(net.on)setNetMsg('재연결됨')}
@@ -2655,7 +2684,7 @@ function bindNetUI(){
 }
 
 /* ============================================================ boot */
-window.__sim={NB,NFX,dropNuke,nbTick,FM,PT,MDL,fireFM,fmTick,CHT,nuke,applyNuke,say:sayAll,fireMissile,MIS,LOOPS,PLN,JUMP,exitPlane,boardPlane,planeStep,teleport,net,netConnect,loadMapFile,get MAPMODE(){return MAPMODE},setPose:(p,q)=>{car.pos=p;car.q=q;car.R=quatToMat(q);car.v=[0,0,0];car.w=[0,0,0]},car,keys,CFG,step:(n=1)=>{for(let i=0;i<n;i++)physStep()},get nitro(){return nitro},set nitro(v){nitro=v},ramps,boxes,resetCar,cam,surfaceAt,
+window.__sim={pvpOn,devPvp,devCheck,boardPlane,NB,NFX,dropNuke,nbTick,FM,PT,MDL,fireFM,fmTick,CHT,nuke,applyNuke,say:sayAll,fireMissile,MIS,LOOPS,PLN,JUMP,exitPlane,boardPlane,planeStep,teleport,net,netConnect,loadMapFile,get MAPMODE(){return MAPMODE},setPose:(p,q)=>{car.pos=p;car.q=q;car.R=quatToMat(q);car.v=[0,0,0];car.w=[0,0,0]},car,keys,CFG,step:(n=1)=>{for(let i=0;i<n;i++)physStep()},get nitro(){return nitro},set nitro(v){nitro=v},ramps,boxes,resetCar,cam,surfaceAt,
  GAME,MIS,fireMissile,buyMissiles,POL,NEEDLES,ND,brk,bon,ST,addCoins,startWanted,arrest,fireNeedle,detonateMine,onNetX,spawnPolice,
  run:(sec)=>{const n=Math.round(sec/dt);for(let i=0;i<n;i++){physStep();if(i%4===3){gameTick(dt*4);updateParticles(dt*4)}}},
  frame1:()=>{updateCamera(.016);render()},get sinceUse(){return sinceUse}};
