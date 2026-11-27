@@ -155,6 +155,7 @@ body.touch #toast{top:30%;font-size:18px}
    <label>금액 (음수 = 회수)<input id="d_amt" type="number" min="-1000000" max="1000000" value="1000"></label>
    <button id="d_give" style="width:100%">💸 코인 보내기 / 회수</button>
    <button id="d_chk" style="width:100%">👁 플레이어 돈 확인</button>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px"><button class="d_sm" data-t="cessna">✈ 경비행기 소환</button><button class="d_sm" data-t="kal">✈ 대한항공 소환</button><button class="d_sm" data-t="jet">✈ 전투기 소환</button><button class="d_sm" data-t="bomber">☢ B-29 소환</button></div>
    <div id="d_list" style="font-size:12px;line-height:1.5;white-space:pre-wrap"></div>
    <label style="display:flex;gap:8px;align-items:center"><input id="d_pvp" type="checkbox"> PvP 전체 끄기 (모든 플레이어 공격 무효)</label>
    <label>공지문 (처음 접속한 플레이어에게 1회 표시)<textarea id="d_ann" rows="4" maxlength="600" style="width:100%;box-sizing:border-box" placeholder="업데이트 내용 / 공지"></textarea></label>
@@ -526,17 +527,17 @@ const PT={
   hit:[[0,0,4.8],[0,.3,-4.6],[7.3,0,.4],[-7.3,0,.4],[0,1.2,0]]},
  kal:{name:'대한항공 747',mdl:'kal',G:4,thrust:7.4,drag:.00034,liftK:9.8/(77.8*77.8),liftMax:15,vs:75,vrot:77.8,rp:.34,rr:.5,ry:.22,gp:-.30,gyaw:.3,sink:10,thrRate:.35,rad:30,padLoc:[16,0,22],padR2:30,cam:[78,24,45],tk:280,
   hit:[[0,2,32],[0,2,-37],[0,13.5,-35],[27,2,-14],[-27,2,-14],[0,9,10],[0,9,-12]]},
- bomber:{name:'B-29 핵폭격기',mdl:'bmb',bomb:1,G:3,thrust:24,drag:.0036,liftK:.0048,liftMax:21,vs:30,vrot:26,rp:1,rr:2,ry:.55,gp:-.7,gyaw:1,sink:11,thrRate:.5,rad:22,padLoc:[9,0,6],padR2:22,cam:[40,12,22],
+ bomber:{name:'B-29 핵폭격기',mdl:'bmb',bomb:1,G:3,thrust:24,drag:.0036,liftK:.0048,liftMax:21,vs:30,vrot:26,rp:1,rr:2,ry:.55,gp:-.7,gyaw:1,sink:11,thrRate:.5,rad:22,padLoc:[0,0,14],padR2:40,cam:[40,12,22],
   hit:[[0,0,8],[0,0,-21.5],[0,4.5,-20],[20.4,0,-6],[-20.4,0,-6],[10,0,-4],[-10,0,-4]]},
  jet:{name:'전투기',mdl:'jet',ft:1,G:1.35,thrust:28,drag:.00056,liftK:.0032,liftMax:34,vs:45,vrot:50,rp:1.5,rr:3.2,ry:.8,gp:-.8,gyaw:.9,sink:13,thrRate:.9,rad:7,padLoc:[8,0,3],padR2:14,cam:[26,7.5,16],tk:180,
   hit:[[0,0,7.3],[0,0,-7.7],[0,2.8,-6.8],[5.1,0,-5],[-5.1,0,-5]]}
 };
 const MDL={};   // 로드된 모델 {vao,count,tex,meta,gearStart}
 const MDLQ=[];
-function addPlane(x,z,yaw,col,type){type=type||'cessna';const T=PT[type];
+function addPlane(x,z,yaw,col,type,by){type=type||'cessna';by=by||0;const T=PT[type];
  const q=quatFromAxisAngle([0,1,0],yaw),Rm=quatToMat(q),pd=mV(Rm,T.padLoc);
- const pl={type,T,sx:x,sz:z,syaw:yaw,pos:[x,T.G,z],q,R:Rm,v:[0,0,0],wl:[0,0,0],thr:0,idle:0,dead:0,spin:0,col,pad:[x+pd[0],z+pd[2]],ammo:6,cd:0,ar:0};PLN.list.push(pl)}
-function planeReset(pl){const T=pl.T;pl.pos=[pl.sx,T.G,pl.sz];pl.q=quatFromAxisAngle([0,1,0],pl.syaw);pl.R=quatToMat(pl.q);pl.v=[0,0,0];pl.wl=[0,0,0];pl.thr=0;pl.idle=0;pl.dead=0;pl.ammo=6;pl.cd=0}
+ const pl={type,T,by,sx:x,sz:z,syaw:yaw,pos:[x,T.G+by,z],q,R:Rm,v:[0,0,0],wl:[0,0,0],thr:0,idle:0,dead:0,spin:0,col,pad:[x+pd[0],z+pd[2]],ammo:6,cd:0,ar:0};PLN.list.push(pl)}
+function planeReset(pl){const T=pl.T;pl.pos=[pl.sx,T.G+(pl.by||0),pl.sz];pl.q=quatFromAxisAngle([0,1,0],pl.syaw);pl.R=quatToMat(pl.q);pl.v=[0,0,0];pl.wl=[0,0,0];pl.thr=0;pl.idle=0;pl.dead=0;pl.ammo=6;pl.cd=0}
 function teleport(x,z,yawDeg,name){if(PLN.act)exitPlane();const gh=surfaceAt(x,50,z,50,50)[0];car.pos=[x,gh+.7,z];car.q=quatFromAxisAngle([0,1,0],yawDeg*D2R);car.R=quatToMat(car.q);car.v=[0,0,0];car.w=[0,0,0];car.wb=0;car.climbT=0;cam.init=false;PLN.armed=false;toast(name)}
 function boardPlane(pl){
  if(pl.T.bomb&&!GAME.dev){
@@ -556,7 +557,7 @@ function planeCrash(pl){
  explode(pl.pos,true);explode(add(pl.pos,[2,1,0]),true);burst(pl.pos,[.9,.35,.1],26,14);cam.shake=1;
  if(pl.T.rad>20){for(let i=0;i<6;i++)explode(add(pl.pos,[(Math.random()-.5)*50,Math.random()*8,(Math.random()-.5)*50]),true)}
  const wasAct=PLN.act===pl;pl.dead=5;
- if(wasAct){PLN.act=null;PLN.armed=false;cam.init=false;car.q=quatFromAxisAngle([0,1,0],pl.syaw);car.R=quatToMat(car.q);car.pos=[pl.pad[0],.7,pl.pad[1]];car.v=[0,0,0];car.w=[0,0,0];car.wb=0;feed('✈ 추락! 공항으로 복귀','bad')}
+ if(wasAct){PLN.act=null;PLN.armed=false;cam.init=false;car.q=quatFromAxisAngle([0,1,0],pl.syaw);car.R=quatToMat(car.q);car.pos=[pl.pad[0],.7+(pl.by||0),pl.pad[1]];car.v=[0,0,0];car.w=[0,0,0];car.wb=0;feed('✈ 추락! 공항으로 복귀','bad')}
 }
 function planeStep(dt){
  const pl=PLN.act;if(!pl)return;const T=pl.T;
@@ -599,7 +600,7 @@ function planeTick(dt){
   if(pl.dead>0){pl.dead-=dt;if(pl.dead<=0)planeReset(pl);continue}
   if(T.ft&&pl.ammo<6&&pl.pos[1]<T.G+1){pl.ar+=dt;if(pl.ar>5){pl.ar=0;pl.ammo++}}
   if(PLN.act===pl){pl.spin+=(8+pl.thr*80)*dt;continue}
-  if(!PLN.act&&PLN.armed&&!occ.has(PLN.list.indexOf(pl))){const dx=car.pos[0]-pl.pad[0],dz=car.pos[2]-pl.pad[1];if(dx*dx+dz*dz<T.padR2&&car.pos[1]<4&&len(car.v)<16){if(!boardPlane(pl))PLN.armed=false;else continue}}
+  if(!PLN.act&&PLN.armed&&!occ.has(PLN.list.indexOf(pl))){const dx=car.pos[0]-pl.pad[0],dz=car.pos[2]-pl.pad[1];if(dx*dx+dz*dz<T.padR2&&Math.abs(car.pos[1]-(pl.by||0))<4&&len(car.v)<16){if(!boardPlane(pl))PLN.armed=false;else continue}}
   if(pl.pos[1]>T.G+.1){pl.v=add(pl.v,[0,-9.8*dt,0]);pl.pos=add(pl.pos,mul(pl.v,dt));const g=surfaceAt(pl.pos[0],pl.pos[1],pl.pos[2],2,2)[0];if(pl.pos[1]<g+T.G){pl.pos[1]=g+T.G;pl.v=[0,0,0]}}
   else pl.v=mul(pl.v,Math.exp(-dt*1.2));
   pl.pos=add(pl.pos,mul([pl.v[0],0,pl.v[2]],dt));
@@ -688,7 +689,7 @@ function drawPlanes(s,t){
   dbox(s,at(0,0,5.75),[a[0],b[0],az[0],a[1],b[1],az[1],a[2],b[2],az[2]],[.1,1.9,.06],[.12,.12,.12],3);
   dbox(s,at(0,0,5.7),R,[.2,.2,.25],rd,3);
  }
- for(const pl of PLN.list){ if(PLN.act!==pl&&!pl.remote&&pl.dead<=0&&(!pl.T.bomb||Math.hypot(pl.pad[0]-car.pos[0],pl.pad[1]-car.pos[2])<120)&&!occ.has(PLN.list.indexOf(pl))){const pu=.6+.4*Math.sin(t*4);const g=surfaceAt(pl.pad[0],50,pl.pad[1],50,50)[0];
+ for(const pl of PLN.list){ if(PLN.act!==pl&&!pl.remote&&pl.dead<=0&&(!pl.T.bomb||HOLE.open)&&!occ.has(PLN.list.indexOf(pl))){const pu=.6+.4*Math.sin(t*4);const g=pl.by?pl.by:surfaceAt(pl.pad[0],50,pl.pad[1],50,50)[0];
    const rr=pl.T.rad>20?3.4:2.4;dbox(s,[pl.pad[0],g+.12,pl.pad[1]],I3,[rr,.07,rr],[0,.9*pu,1*pu],7);dbox(s,[pl.pad[0],g+(pl.T.rad>20?9:4),pl.pad[1]],I3,[.12,pl.T.rad>20?9:4,.12],[0,.8,1],7)}}
 }
 
@@ -1021,9 +1022,15 @@ function buildExtras(){
  [-140,-40,130].forEach(z=>addPlane(AX-85,z,Math.PI,null,'kal'));
  [320,370,420].forEach(z=>addPlane(AX-60,z,0,null,'jet'));
  addPlane(AX-55,-290,0,pcols[0]);addPlane(AX-55,-325,0,pcols[1]);
- {const hx=AX+520,hz=900,cm=[.2,.25,.19];
-  solid(hx+18,0,hz-26,hx+20,16,hz+26,cm,3);solid(hx-30,0,hz-26,hx+20,16,hz-24,cm,3);solid(hx-30,0,hz+24,hx+20,16,hz+26,cm,3);solid(hx-30,14,hz-26,hx+20,16,hz+26,cm,3);
-  addPlane(hx-6,hz,-Math.PI/2,null,'bomber');}
+ {// 지하 비밀 격납고: 평소엔 평평한 잔디 + 깃발 하나. 7 키를 누르는 동안 잔디가 유령이 되어 구멍이 열림
+  const H=HOLE,cw=[.27,.28,.31],hz=900,fl=[.36,.37,.4],fy=H.y;
+  solid(H.x0,fy,H.z0,H.x1,-.4,H.z0+2,cw,3);solid(H.x0,fy,H.z1-2,H.x1,-.4,H.z1,cw,3);solid(H.x1-2,fy,H.z0,H.x1,-.4,H.z1,cw,3);
+  F(1780,H.z0+2,H.x1-2,H.z1-2,fy+.02,fl,3);
+  {const xa=1680,xb=1780,y0=-.3,y1=fy+.02,zz0=H.z0+2,zz1=H.z1-2;quad([xa,y0,zz0],[xb,y1,zz0],[xb,y1,zz1],[xa,y0,zz1],[.08,1,0],[.42,.43,.46],3)}
+  {const r=new Ramp(1680,hz,90,H.z1-H.z0-4,[[0,0],[100,fy]]);ramps.push(r);gridAdd(r,r.bx0,r.bx1,r.bz0,r.bz1,'r')}
+  // 깃발 (지상에서 보이는 유일한 표시)
+  solid(1779.9,0,899.9,1780.1,9,900.1,[.8,.8,.8],3,false);solid(1779.97,6.2,900.1,1780.03,8.8,903.1,[.85,.1,.12],3,false);
+  addPlane(1832,hz,-Math.PI/2,null,'bomber',fy);}
 
  // ---------------- 야구장 (서쪽 x≈-1350)
  const SX=-1350,SZ=0,FH=80;
@@ -1098,9 +1105,12 @@ function buildExtras(){
 
 /* ---------- surface queries ---------- */
 const UP=[0,1,0];
+const HOLE={x0:1680,z0:872,x1:1862,z1:928,y:-12,open:false};
+function updateHole(){let x,z,y;if(PLN.act){const p=PLN.act;x=p.pos[0];z=p.pos[2];y=p.pos[1]-p.T.G}else{x=car.pos[0];z=car.pos[2];y=car.pos[1]-.7}
+ HOLE.open=!!keys.Digit7||(x>HOLE.x0&&x<HOLE.x1&&z>HOLE.z0&&z<HOLE.z1&&y<-.6)}
 function surfaceAt(px,py,pz,tolB,tolR){
  if(MAPMODE)return mapSurface(px,py,pz,Math.max(tolB,.8));
- let h=0,n=UP;const c=cellAt(px,pz);
+ let h=(HOLE.open&&px>HOLE.x0&&px<HOLE.x1&&pz>HOLE.z0&&pz<HOLE.z1)?HOLE.y:0,n=UP;const c=cellAt(px,pz);
  for(const b of c.b){if(px>b.x0&&px<b.x1&&pz>b.z0&&pz<b.z1&&b.top<=py+tolB&&b.top>h){h=b.top;n=UP}}
  for(const r of c.r){const [u,w]=r.loc(px,pz);if(!r.inside(u,w))continue;const hh=r.h(u);if(hh<=py+tolR&&hh>h){h=hh;const i=r.seg(u);const s=(r.prof[i+1][1]-r.prof[i][1])/(r.prof[i+1][0]-r.prof[i][0]);n=norm([-s*r.dx,1,-s*r.dz])}}
  return [h,n];
@@ -1131,6 +1141,7 @@ function pointVel(r){return add(car.v,cross(car.w,r))}
 
 const dt=1/240;
 function physStep(){
+ updateHole();
  if(PLN.act){planeStep(dt);return}
  const R=car.R;
  const throttleIn=(keys.KeyW?1:0)-(keys.KeyS?1:0);
@@ -1380,7 +1391,7 @@ uniform mat4 uVP;out vec3 vPos;out vec3 vNor;out vec3 vCol;out vec2 vT;flat out 
 void main(){vPos=aPos;vNor=aNor;vCol=aCol;vT=aT;vKind=aKind;gl_Position=uVP*vec4(aPos,1.);}`,
 `#version 300 es
 precision highp float;in vec3 vPos;in vec3 vNor;in vec3 vCol;in vec2 vT;flat in float vKind;
-uniform vec3 uCam;uniform vec2 uCity;out vec4 o;${COMMON}
+uniform vec3 uCam;uniform vec2 uCity;uniform vec4 uHole;out vec4 o;${COMMON}
 vec3 ground(vec3 wp){
   vec2 q=wp.xz;
   vec3 grass=mix(vec3(.12,.2,.09),vec3(.2,.26,.12),hash(floor(q*.5)));
@@ -1403,6 +1414,7 @@ vec3 ground(vec3 wp){
 void main(){
   vec3 n=normalize(vNor);vec3 wp=vPos;vec3 alb=vCol;vec3 emis=vec3(0.);float spec=0.;
   int k=int(vKind+.5);
+  if(k==0&&uHole.z>uHole.x&&wp.x>uHole.x&&wp.x<uHole.z&&wp.z>uHole.y&&wp.z<uHole.w)discard;
   vec3 V=normalize(uCam-wp);
   if(k==0){alb=ground(wp);n=vec3(0.,1.,0.);spec=.15;}
   else if(k==5){vec2 f=fract(wp.xz/4.);float ln=step(f.x,.03)+step(f.y,.03);alb=vCol*(1.-.18*min(ln,1.))*(.92+.16*hash(floor(wp.xz/4.)));}
@@ -2237,6 +2249,17 @@ function drawNeedles(s,t){
 
 /* ---------- homing missile ---------- */
 const MIS=[];
+function devSummon(type){
+ if(!GAME.dev)return;const occ=remotePlaneIdx();
+ let pl=(PLN.act&&PLN.act.type===type)?PLN.act:PLN.list.find(p=>p.type===type&&!p.remote&&p.dead<=0&&!occ.has(PLN.list.indexOf(p)));
+ if(!pl){toast('소환 가능한 '+type+' 없음');return}
+ if(PLN.act&&PLN.act!==pl)PLN.act=null;
+ const T=pl.T,f=mV(car.R,[0,0,1]),yaw=Math.atan2(f[0],f[2]);
+ const x=car.pos[0],z=car.pos[2],g=surfaceAt(x,car.pos[1]+1.5,z,2,2)[0];
+ pl.pos=[x,g+T.G,z];pl.q=quatFromAxisAngle([0,1,0],yaw);pl.R=quatToMat(pl.q);pl.v=[0,0,0];pl.wl=[0,0,0];pl.thr=0;pl.idle=0;pl.dead=0;pl.ammo=6;pl.cd=0;
+ if(T.hit.some(l=>{const q=add(pl.pos,mV(pl.R,l));return pointInBox(q[0],q[1],q[2])})){pl.pos[1]+=45;pl.v=mul(f,T.vs*1.7);pl.thr=.8}
+ PLN.act=pl;car.v=[0,0,0];car.w=[0,0,0];cam.pp=null;cam.init=false;toast('🛠 소환: '+T.name);sfx('coin')}
+const SUMMON_ORDER=['cessna','kal','jet','bomber'];let summonI=0;
 let PVP_OFF_UNTIL=0;const pvpOn=()=>performance.now()>PVP_OFF_UNTIL;const BOMBER_FEE=100000;
 const CHT={ghost:false,misPow:1,ndPow:1,burst:1,size:1,onHit:null};
 const nz=(v,lo,hi,d)=>{v=+v;return isFinite(v)?Math.max(lo,Math.min(hi,v)):d};
@@ -2299,7 +2322,7 @@ function gameTick(dtf){
  wfx.className=GAME.wanted>0?'on':'';
 }
 function drawGame(vp){
- gl.useProgram(worldP.p);gl.uniformMatrix4fv(worldP.u.uVP,false,vp);gl.uniform3fv(worldP.u.uCam,cam.eye);
+ gl.useProgram(worldP.p);gl.uniformMatrix4fv(worldP.u.uVP,false,vp);gl.uniform3fv(worldP.u.uCam,cam.eye);gl.uniform4fv(worldP.u.uHole,HOLE.open?[HOLE.x0,HOLE.z0,HOLE.x1,HOLE.z1]:[0,0,0,0]);
  gl.disable(gl.CULL_FACE);
  if(!MAPMODE&&brkSolid.n){gl.bindVertexArray(brkSolid.vao);gl.drawArrays(gl.TRIANGLES,0,brkSolid.n)}
  const s=dynSink;s.n=0;const t=GAME.t;
@@ -2371,7 +2394,7 @@ function render(){
  gl.depthMask(false);gl.bindVertexArray(skyVAO);gl.drawArrays(gl.TRIANGLES,0,3);gl.depthMask(true);
  // world
  if(MAPMODE&&MAP){drawMap(vp)}else{
- gl.useProgram(worldP.p);gl.uniformMatrix4fv(worldP.u.uVP,false,vp);gl.uniform3fv(worldP.u.uCam,cam.eye);
+ gl.useProgram(worldP.p);gl.uniformMatrix4fv(worldP.u.uVP,false,vp);gl.uniform3fv(worldP.u.uCam,cam.eye);gl.uniform4fv(worldP.u.uHole,HOLE.open?[HOLE.x0,HOLE.z0,HOLE.x1,HOLE.z1]:[0,0,0,0]);
  gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(1,1);
  gl.bindVertexArray(worldVAO);gl.drawArrays(gl.TRIANGLES,0,worldCount);
  gl.disable(gl.POLYGON_OFFSET_FILL);}
@@ -2416,6 +2439,7 @@ addEventListener('keydown',e=>{
  if(e.repeat)return;keys[e.code]=true;initAudio();if(actx&&actx.state==='suspended')actx.resume();
  if(e.code==='ArrowUp')keys.KeyW=true;if(e.code==='ArrowDown')keys.KeyS=true;if(e.code==='ArrowLeft')keys.KeyA=true;if(e.code==='ArrowRight')keys.KeyD=true;
  if(e.code==='KeyR'){if(PLN.act)exitPlane();else{resetCar(true);JUMP.cp=null;JUMP.done=false;toast('처음 위치로')}}
+ if(e.code==='Digit8'&&GAME.dev){devSummon(SUMMON_ORDER[summonI%4]);summonI++}
  if(e.code==='Digit1')teleport(1060,60,90,'✈ 인천국제공항');
  if(e.code==='Digit2')teleport(-1350,-135,0,'⚾ 야구장');
  if(e.code==='Digit3'){teleport(JUMP.x,JUMP.z-80,0,'🏁 점프맵');JUMP.cp=null;JUMP.done=false}
@@ -2451,7 +2475,7 @@ addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
   ['KeyB','🛒','B','sm','right:12px;bottom:218px',0],['KeyN','🛒','N','sm','right:62px;bottom:218px',0],
   ['KeyC','🎥','C','sm','right:112px;bottom:218px',0],['KeyX','🧗','X','sm','right:162px;bottom:218px',0],
   ['KeyR','🏠','R','sm','right:162px;bottom:174px',0],['KeyF','↩','F','sm','right:212px;bottom:174px',0],
-  ['KeyM','🔇','M','sm','right:212px;bottom:218px',0],['Digit1','✈','1','sm','left:12px;bottom:138px',0],['Digit2','⚾','2','sm','left:64px;bottom:138px',0],['Digit3','🏁','3','sm','left:116px;bottom:138px',0],['Digit4','🚔','4','sm','left:168px;bottom:138px',0],
+  ['KeyM','🔇','M','sm','right:212px;bottom:218px',0],['Digit1','✈','1','sm','left:12px;bottom:138px',0],['Digit2','⚾','2','sm','left:64px;bottom:138px',0],['Digit3','🏁','3','sm','left:116px;bottom:138px',0],['Digit4','🚔','4','sm','left:168px;bottom:138px',0],['Digit7','👻','7','sm','left:220px;bottom:138px',1],
   ['CHAT','💬','','sm','left:116px;bottom:92px',0]];
  for(const [code,ic,lb,sz,pos,hold] of L){
   const b=document.createElement('div');b.className='b '+sz;b.style.cssText=pos;b.innerHTML=ic+(lb?'<small>'+lb+'</small>':'');tc.appendChild(b);
@@ -2491,7 +2515,7 @@ function toggleHelp(){const h=$('help'),o=$('helpx');const hide=h.style.display!
 function bindHelp(){$('helpc').addEventListener('click',toggleHelp);$('helpx').addEventListener('click',toggleHelp);let v='1';try{v=localStorage.getItem('ts_help')||'1'}catch(e){}if(v==='0')toggleHelp()}
 
 /* ---------- 개발자 기능: 코인 보내기 · 공지문 ---------- */
-const UPDATE_NOTE={id:'2026-11-26',text:'업데이트 내용\n• 핵폭격기를 추가하고 분탕질 한것에대해 죄송합니다'};
+const UPDATE_NOTE={id:'2026-11-26',text:'업데이트 내용\n• 인천국제공항 풍으로 공항 개편 (터미널·탑승교·관제탑·격납고·두 번째 활주로)\n• 대한항공 747 추가 (실제 크기, 280km/h 이상에서 이륙)\n• 전투기 추가: T 로 추적 미사일 발사 (1발에 격추, 자기 미사일엔 안 맞음)\n• 벽 자동 부착 · 서스펜션 삭제 · 착지 시 바닥에 붙음\n• ☢ B-29 핵폭격기 추가: T 로 핵 투하 (미사일 50 + 독침 100 소모, 폭발 10초 전 낙하산 해제, 벗어나면 +200🪙 / 휘말리면 -1000🪙)\n• ☢ B-29 탑승료 100,000🪙 (탑승할 때마다)\n• 개발자가 PvP를 전체 끄면 플레이어끼리 공격이 무효가 됩니다\n• 전투기 미사일은 이제 보유 미사일을 소모합니다\n• 1번 키: 공항 이동'};
 const annQ=[];let annOpen=false;
 function showAnn(text,key){annQ.push([text,key]);if(!annOpen)nextAnn()}
 function nextAnn(){const it=annQ.shift();if(!it){annOpen=false;$('ann').style.display='none';return}annOpen=true;$('ann_t').textContent=it[0];$('ann').style.display='flex';$('ann').dataset.key=it[1]}
@@ -2544,7 +2568,7 @@ function devGive(){
 }
 function bindDev(){
  $('d_sql').value=devSql();$('d_to').addEventListener('mousedown',devRefresh);$('d_to').addEventListener('focus',devRefresh);
- $('d_give').addEventListener('click',devGive);$('d_chk').addEventListener('click',devCheck);$('d_pvp').addEventListener('change',devPvp);try{if(localStorage.getItem('ts_pvpoff')==='1'){$('d_pvp').checked=false}}catch(e){}$('d_post').addEventListener('click',postAnn);
+ document.querySelectorAll('.d_sm').forEach(b=>b.addEventListener('click',()=>devSummon(b.dataset.t)));$('d_give').addEventListener('click',devGive);$('d_chk').addEventListener('click',devCheck);$('d_pvp').addEventListener('change',devPvp);try{if(localStorage.getItem('ts_pvpoff')==='1'){$('d_pvp').checked=false}}catch(e){}$('d_post').addEventListener('click',postAnn);
  for(const id of ['d_amt','d_ann'])$(id).addEventListener('keydown',e=>e.stopPropagation());
  $('ann_ok').addEventListener('click',annDone);
  addEventListener('keydown',e=>{if(annOpen&&(e.key==='Enter'||e.key==='Escape')){e.preventDefault();annDone()}},true);
@@ -2684,7 +2708,7 @@ function bindNetUI(){
 }
 
 /* ============================================================ boot */
-window.__sim={pvpOn,devPvp,devCheck,boardPlane,NB,NFX,dropNuke,nbTick,FM,PT,MDL,fireFM,fmTick,CHT,nuke,applyNuke,say:sayAll,fireMissile,MIS,LOOPS,PLN,JUMP,exitPlane,boardPlane,planeStep,teleport,net,netConnect,loadMapFile,get MAPMODE(){return MAPMODE},setPose:(p,q)=>{car.pos=p;car.q=q;car.R=quatToMat(q);car.v=[0,0,0];car.w=[0,0,0]},car,keys,CFG,step:(n=1)=>{for(let i=0;i<n;i++)physStep()},get nitro(){return nitro},set nitro(v){nitro=v},ramps,boxes,resetCar,cam,surfaceAt,
+window.__sim={HOLE,car,GAME,pvpOn,devPvp,devCheck,boardPlane,NB,NFX,dropNuke,nbTick,FM,PT,MDL,fireFM,fmTick,CHT,nuke,applyNuke,say:sayAll,fireMissile,MIS,LOOPS,PLN,JUMP,exitPlane,boardPlane,planeStep,teleport,net,netConnect,loadMapFile,get MAPMODE(){return MAPMODE},setPose:(p,q)=>{car.pos=p;car.q=q;car.R=quatToMat(q);car.v=[0,0,0];car.w=[0,0,0]},car,keys,CFG,step:(n=1)=>{for(let i=0;i<n;i++)physStep()},get nitro(){return nitro},set nitro(v){nitro=v},ramps,boxes,resetCar,cam,surfaceAt,
  GAME,MIS,fireMissile,buyMissiles,POL,NEEDLES,ND,brk,bon,ST,addCoins,startWanted,arrest,fireNeedle,detonateMine,onNetX,spawnPolice,
  run:(sec)=>{const n=Math.round(sec/dt);for(let i=0;i<n;i++){physStep();if(i%4===3){gameTick(dt*4);updateParticles(dt*4)}}},
  frame1:()=>{updateCamera(.016);render()},get sinceUse(){return sinceUse}};
